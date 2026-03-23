@@ -13,6 +13,11 @@
         #statusMessage { text-align: center; color: #666; margin-bottom: 20px; }
 .panel { display: none; background: #e9ecef; padding: 15px; margin-top: 15px; border-radius: 8px; }
 .panel input { width: 90%; padding: 8px; margin: 5px 0 15px 0; }
+        .activity-card { background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #00B900; }
+.activity-card.full { border-left-color: #dc3545; opacity: 0.7; }
+.meta-text { color: #666; font-size: 14px; margin: 5px 0; }
+.btn-book { background: #008CBA; padding: 10px; width: 100%; border: none; color: white; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+.btn-book:disabled { background: #ccc; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -36,6 +41,10 @@
         
         <button class="btn btn-staff" onclick="saveParams()">💾 儲存設定</button>
         <p id="saveMsg" style="color: red; font-size: 14px;"></p>
+    </div>
+    <div id="masterPanel" class="panel" style="background: transparent; padding: 0;">
+        <h3>📅 可報名班表</h3>
+        <div id="activityList">讀取清單中...</div>
     </div>
 </div>
 
@@ -109,6 +118,110 @@
         }
     }
 // 綁定「館員管理介面」按鈕的點擊事件，用來展開設定面板
+    // 綁定「總班表」按鈕點擊事件
+    document.getElementById('btn-master-schedule').addEventListener('click', function() {
+        // 隱藏選單，顯示班表面板
+        document.getElementById('buttonArea').style.display = 'none';
+        document.getElementById('masterPanel').style.display = 'block';
+        fetchActivities();
+    });
+
+    // 向 GAS 請求活動清單
+    function fetchActivities() {
+        const listDiv = document.getElementById('activityList');
+        listDiv.innerHTML = "資料載入中，請稍候...";
+        
+        fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: "getActivities" })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "success") {
+                renderActivities(data.data);
+            } else {
+                listDiv.innerHTML = "讀取失敗：" + data.message;
+            }
+        })
+        .catch(err => {
+            listDiv.innerHTML = "網路錯誤，無法讀取班表。";
+        });
+    }
+
+    // 將活動清單繪製成畫面卡片
+    function renderActivities(activities) {
+        const listDiv = document.getElementById('activityList');
+        listDiv.innerHTML = ""; // 清空載入中文字
+        
+        if (activities.length === 0) {
+            listDiv.innerHTML = "目前沒有可報名的活動。";
+            return;
+        }
+
+        activities.forEach(act => {
+            const isFull = act.remain <= 0;
+            const actDetails = `${act.date} ${act.time} ${act.content}`;
+            
+            // 建立卡片元素
+            const card = document.createElement('div');
+            card.className = isFull ? 'activity-card full' : 'activity-card';
+            
+            card.innerHTML = `
+                <h4 style="margin:0 0 10px 0;">${act.content}</h4>
+                <p class="meta-text">⏰ 時間：${act.date} ${act.time}</p>
+                <p class="meta-text">👥 名額：剩餘 <span style="color: ${isFull ? 'red' : 'green'}; font-weight: bold;">${act.remain}</span> / ${act.quota} 人</p>
+                <button class="btn-book" 
+                        onclick="submitBooking(${act.index}, '${actDetails}')" 
+                        ${isFull ? 'disabled' : ''}>
+                    ${isFull ? '❌ 已額滿' : '✅ 點我報名'}
+                </button>
+            `;
+            listDiv.appendChild(card);
+        });
+    }
+
+    // 送出報名請求
+    function submitBooking(actIndex, actDetails) {
+        // 從 sessionStorage 拿出剛登入時存的身分資料
+        const lineId = sessionStorage.getItem("volLineId");
+        const name = sessionStorage.getItem("volName");
+
+        if (!lineId) {
+            alert("登入資訊遺失，請重新開啟 LINE 介面！");
+            return;
+        }
+
+        if (confirm(`確定要報名：\n${actDetails} 嗎？\n\n(系統將進行搶班確認)`)) {
+            // 先將畫面鎖定避免重複點擊
+            document.getElementById('masterPanel').style.opacity = '0.5';
+            
+            fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: "bookShift",
+                    lineId: lineId,
+                    name: name,
+                    actIndex: actIndex,
+                    actDetails: actDetails
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('masterPanel').style.opacity = '1'; // 解除鎖定
+                if (data.status === "success") {
+                    alert("🎉 恭喜您，" + data.message);
+                    fetchActivities(); // 成功後自動重新整理班表名額
+                } else {
+                    alert("⚠️ 報名失敗：\n" + data.message);
+                    fetchActivities(); // 失敗也重新整理，可能名額剛好被搶走
+                }
+            })
+            .catch(err => {
+                document.getElementById('masterPanel').style.opacity = '1';
+                alert("連線逾時，請確認網路狀態後再試。");
+            });
+        }
+    }
     document.getElementById('btn-staff-manage').addEventListener('click', function() {
         const panel = document.getElementById('staffPanel');
         // 切換顯示/隱藏
