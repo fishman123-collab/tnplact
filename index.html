@@ -73,6 +73,7 @@
 
     // 呼叫 GAS 驗證身分
     function checkUserRole(lineId) {
+        sessionStorage.setItem("volLineId", lineId); // 加入這行：一登入就立刻把 LINE ID 存起來
         document.getElementById('statusMessage').innerText = "驗證身分中...";
         
         // 準備要傳給 GAS 的資料
@@ -114,7 +115,7 @@
             sessionStorage.setItem("volGroup", userData.group); 
             sessionStorage.setItem("volConcurrent", userData.concurrent || "");
             sessionStorage.setItem("volName", userData.name);
-            sessionStorage.setItem("volLineId", userData.lineId);
+            
         }
     }
 // 綁定「館員管理介面」按鈕的點擊事件，用來展開設定面板
