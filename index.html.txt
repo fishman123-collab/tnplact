@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>志工填班系統</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body { font-family: '微軟正黑體', sans-serif; padding: 20px; background-color: #f4f5f7; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .btn { display: none; width: 100%; padding: 15px; margin: 10px 0; background-color: #00B900; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; text-align: center; }
+        .btn-staff { background-color: #ff5722; }
+        #statusMessage { text-align: center; color: #666; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 style="text-align: center;">志工排班系統</h2>
+    <div id="statusMessage">系統載入中，請稍候...</div>
+    
+    <div id="buttonArea">
+        <button id="btn-master-schedule" class="btn">📅 總班表 (報名/代班)</button>
+        <button id="btn-my-schedule" class="btn">👤 個人儀表板 (我的班表)</button>
+        <button id="btn-staff-manage" class="btn btn-staff">⚙️ 館員管理介面 (取消/調整)</button>
+    </div>
+</div>
+
+<script>
+    // ======== 請替換以下兩個網址/ID ========
+    const LIFF_ID = "2008914129-kU6EacB0"; // 填入您的 LIFF ID
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxAxfitZSSedHZCmix-gjdS8Z1kOJvcvT5BQA9JEqmHUZuppfMRuFn7bwQZtVppKVIa/exec"; // 填入剛部署的 GAS 網址
+    // ========================================
+
+    // 網頁載入後立即執行 LIFF 初始化
+    window.onload = function() {
+        liff.init({ liffId: LIFF_ID })
+            .then(() => {
+                if (!liff.isLoggedIn()) {
+                    liff.login(); // 如果沒登入，強制跳轉 LINE 登入
+                } else {
+                    liff.getProfile().then(profile => {
+                        checkUserRole(profile.userId); // 取得 LINE ID 後呼叫後端驗證
+                    });
+                }
+            })
+            .catch(err => {
+                document.getElementById('statusMessage').innerText = "LIFF 初始化失敗：" + err.message;
+            });
+    };
+
+    // 呼叫 GAS 驗證身分
+    function checkUserRole(lineId) {
+        document.getElementById('statusMessage').innerText = "驗證身分中...";
+        
+        // 準備要傳給 GAS 的資料
+        const payload = {
+            action: "checkLogin",
+            lineId: lineId
+        };
+
+        fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                document.getElementById('statusMessage').innerText = `歡迎，${data.name}！`;
+                showButtonsByRole(data); // 根據權限顯示按鈕
+            } else {
+                document.getElementById('statusMessage').innerText = data.message;
+            }
+        })
+        .catch(error => {
+            document.getElementById('statusMessage').innerText = "網路錯誤，無法連線至資料庫。";
+        });
+    }
+
+    // 根據回傳的權限決定顯示哪些按鈕
+    function showButtonsByRole(userData) {
+        if (userData.role === "staff") {
+            // 如果是館員，顯示總班表與館員管理介面
+            document.getElementById('btn-master-schedule').style.display = "block";
+            document.getElementById('btn-staff-manage').style.display = "block";
+        } else if (userData.role === "volunteer") {
+            // 如果是志工，顯示總班表與個人儀表板
+            document.getElementById('btn-master-schedule').style.display = "block";
+            document.getElementById('btn-my-schedule').style.display = "block";
+            
+            // 這裡可以把組別資訊存起來，方便下一頁使用
+            sessionStorage.setItem("volGroup", userData.group); 
+            sessionStorage.setItem("volConcurrent", userData.concurrent || "");
+            sessionStorage.setItem("volName", userData.name);
+            sessionStorage.setItem("volLineId", userData.lineId);
+        }
+    }
+</script>
+
+</body>
+</html>
