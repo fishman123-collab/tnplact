@@ -11,6 +11,8 @@
         .btn { display: none; width: 100%; padding: 15px; margin: 10px 0; background-color: #00B900; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; text-align: center; }
         .btn-staff { background-color: #ff5722; }
         #statusMessage { text-align: center; color: #666; margin-bottom: 20px; }
+.panel { display: none; background: #e9ecef; padding: 15px; margin-top: 15px; border-radius: 8px; }
+.panel input { width: 90%; padding: 8px; margin: 5px 0 15px 0; }
     </style>
 </head>
 <body>
@@ -23,6 +25,17 @@
         <button id="btn-master-schedule" class="btn">📅 總班表 (報名/代班)</button>
         <button id="btn-my-schedule" class="btn">👤 個人儀表板 (我的班表)</button>
         <button id="btn-staff-manage" class="btn btn-staff">⚙️ 館員管理介面 (取消/調整)</button>
+    </div>
+<div id="staffPanel" class="panel">
+        <h3>⚙️ 排班時間設定</h3>
+        <label>第一階段開始時間 (限1班)：</label>
+        <input type="datetime-local" id="phase1_time">
+        
+        <label>第二階段開始時間 (無限制)：</label>
+        <input type="datetime-local" id="phase2_time">
+        
+        <button class="btn btn-staff" onclick="saveParams()">💾 儲存設定</button>
+        <p id="saveMsg" style="color: red; font-size: 14px;"></p>
     </div>
 </div>
 
@@ -94,6 +107,45 @@
             sessionStorage.setItem("volName", userData.name);
             sessionStorage.setItem("volLineId", userData.lineId);
         }
+    }
+// 綁定「館員管理介面」按鈕的點擊事件，用來展開設定面板
+    document.getElementById('btn-staff-manage').addEventListener('click', function() {
+        const panel = document.getElementById('staffPanel');
+        // 切換顯示/隱藏
+        panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+    });
+
+    // 儲存參數傳送給 GAS
+    function saveParams() {
+        const p1 = document.getElementById('phase1_time').value;
+        const p2 = document.getElementById('phase2_time').value;
+        const msg = document.getElementById('saveMsg');
+
+        if (!p1 || !p2) {
+            msg.innerText = "請完整填寫兩個階段的時間！";
+            return;
+        }
+
+        msg.innerText = "儲存中...";
+        
+        fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: "saveParams",
+                phase1: p1,
+                phase2: p2
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "success") {
+                msg.style.color = "green";
+                msg.innerText = "✅ 儲存成功！";
+            }
+        })
+        .catch(err => {
+            msg.innerText = "儲存失敗，請檢查網路連線。";
+        });
     }
 </script>
 
