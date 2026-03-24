@@ -159,95 +159,81 @@
         });
     }
 
-    // 將活動清單繪製成畫面卡片 (加入預覽狀態判斷)
+    // 將活動清單繪製成畫面卡片
     function renderActivities(activities) {
         const listDiv = document.getElementById('activityList');
         listDiv.innerHTML = ""; 
         
-        if (activities.length === 0) {
-            listDiv.innerHTML = "目前沒有可填班的活動。";
-            return;
-        }
+        if (activities.length === 0) { listDiv.innerHTML = "目前沒有可報名的活動。"; return; }
 
         activities.forEach(act => {
             const isFull = act.remain <= 0;
-            const actDetails = `${act.date} ${act.time} ${act.content}`;
+            const actDetails = act.isSubCard ? act.actDetails : `${act.date} ${act.time} ${act.content}`;
             
-            // 判斷按鈕文字與狀態
-            let btnDisabled = '';
-            let btnText = '✅ 點我填班';
-            let btnColor = '#008CBA';
+            let btnDisabled = ''; let btnText = '✅ 點我報名'; let btnColor = '#008CBA';
+            let onclickFn = `submitBooking(${act.index}, '${actDetails}', '${act.actType}')`;
             
-            if (act.isPreview) {
-                btnDisabled = 'disabled';
-                btnText = `👀 預覽中 (${act.p1TimeStr} 開放填班)`;
-                btnColor = '#ff9800'; // 橘黃色表示預覽
+            // 處理代班卡片
+            if (act.isSubCard) {
+                btnText = '🙋‍♂️ 協助代班'; btnColor = '#ff5722';
+                onclickFn = `submitTakeSubstitute(${act.recordRow})`;
+            } 
+            // 處理預覽與額滿狀態
+            else if (act.isPreview) {
+                btnDisabled = 'disabled'; btnText = `👀 預覽中 (${act.p1TimeStr} 開放填班)`; btnColor = '#ff9800';
             } else if (isFull) {
-                btnDisabled = 'disabled';
-                btnText = '❌ 已額滿';
-                btnColor = '#ccc';
+                btnDisabled = 'disabled'; btnText = '❌ 已額滿'; btnColor = '#ccc';
             }
             
             const card = document.createElement('div');
             card.className = isFull ? 'activity-card full' : 'activity-card';
-            if(act.isPreview) card.style.borderLeftColor = '#ff9800'; // 預覽卡片邊框變橘色
+            if (act.isPreview) card.style.borderLeftColor = '#ff9800';
+            if (act.isSubCard) card.style.borderLeftColor = '#ff5722'; // 代班卡片紅色邊緣
             
             card.innerHTML = `
                 <h4 style="margin:0 0 10px 0;">${act.content}</h4>
                 <p class="meta-text">⏰ 時間：${act.date} ${act.time}</p>
                 <p class="meta-text">👥 名額：剩餘 <span style="color: ${isFull ? 'red' : 'green'}; font-weight: bold;">${act.remain}</span> / ${act.quota} 人</p>
-                <button class="btn-book" style="background-color: ${btnColor};"
-                        onclick="submitBooking(${act.index}, '${actDetails}')" 
-                        ${btnDisabled}>
-                    ${btnText}
-                </button>
+                <button class="btn-book" style="background-color: ${btnColor};" onclick="${onclickFn}" ${btnDisabled}>${btnText}</button>
             `;
             listDiv.appendChild(card);
         });
     }
 
-    // 送出報名請求
-    function submitBooking(actIndex, actDetails) {
-        // 從 sessionStorage 拿出剛登入時存的身分資料
-        const lineId = sessionStorage.getItem("volLineId");
-        const name = sessionStorage.getItem("volName");
-
-        if (!lineId) {
-            alert("登入資訊遺失，請重新開啟 LINE 介面！");
-            return;
-        }
-
-        if (confirm(`確定要填班：\n${actDetails} 嗎？\n\n(系統將進行填班確認)`)) {
-            // 先將畫面鎖定避免重複點擊
+   // 送出一般報名
+    function submitBooking(actIndex, actDetails, actType) {
+        const lineId = sessionStorage.getItem("volLineId"); const name = sessionStorage.getItem("volName");
+        if (!lineId) { alert("登入資訊遺失，請重新開啟 LINE 介面！"); return; }
+        if (confirm(`確定要報名：\n${actDetails} 嗎？`)) {
             document.getElementById('masterPanel').style.opacity = '0.5';
-            
             fetch(GAS_URL, {
                 method: 'POST',
-                body: JSON.stringify({
-                    action: "bookShift",
-                    lineId: lineId,
-                    name: name,
-                    actIndex: actIndex,
-                    actDetails: actDetails
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('masterPanel').style.opacity = '1'; // 解除鎖定
-                if (data.status === "success") {
-                    alert("🎉 恭喜您，" + data.message);
-                    fetchActivities(); // 成功後自動重新整理班表名額
-                } else {
-                    alert("⚠️ 填班失敗：\n" + data.message);
-                    fetchActivities(); // 失敗也重新整理，可能名額剛好被搶走
-                }
-            })
-            .catch(err => {
+                body: JSON.stringify({ action: "bookShift", lineId: lineId, name: name, actIndex: actIndex, actDetails: actDetails, actType: actType })
+            }).then(res => res.json()).then(data => {
                 document.getElementById('masterPanel').style.opacity = '1';
-                alert("連線逾時，請確認網路狀態後再試。");
-            });
+                if (data.status === "success") { alert("🎉 " + data.message); fetchActivities(); } 
+                else { alert("⚠️ 報名失敗：\n" + data.message); fetchActivities(); }
+            }).catch(err => { document.getElementById('masterPanel').style.opacity = '1'; alert("連線逾時。"); });
         }
     }
+
+    // 點擊協助代班
+    function submitTakeSubstitute(recordRow) {
+        const lineId = sessionStorage.getItem("volLineId"); const name = sessionStorage.getItem("volName");
+        if (confirm(`確定要接手這個代班嗎？\n(您的姓名將會取代原志工)`)) {
+            document.getElementById('masterPanel').style.opacity = '0.5';
+            fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: "takeSubstitute", lineId: lineId, name: name, recordRow: recordRow })
+            }).then(res => res.json()).then(data => {
+                document.getElementById('masterPanel').style.opacity = '1';
+                if (data.status === "success") { alert("🎉 " + data.message); fetchActivities(); } 
+                else { alert("⚠️ 代班失敗：\n" + data.message); fetchActivities(); }
+            }).catch(err => { document.getElementById('masterPanel').style.opacity = '1'; alert("連線逾時。"); });
+        }
+    }
+
+    
     // 綁定「館員管理介面」按鈕點擊事件
     document.getElementById('btn-staff-manage').addEventListener('click', function() {
         const panel = document.getElementById('staffPanel');
@@ -331,59 +317,42 @@
     function renderMySchedule(shifts) {
         const listDiv = document.getElementById('myActivityList');
         listDiv.innerHTML = ""; 
-        
-        if (shifts.length === 0) {
-            listDiv.innerHTML = "您目前沒有認填任何活動班次喔！";
-            return;
-        }
+        if (shifts.length === 0) { listDiv.innerHTML = "您目前沒有報名任何活動班次喔！"; return; }
 
         shifts.forEach(shift => {
-            const card = document.createElement('div');
-            card.className = 'activity-card';
-            card.style.borderLeftColor = '#2196F3'; // 個人班表用藍色邊框
+            const card = document.createElement('div'); card.className = 'activity-card'; card.style.borderLeftColor = '#2196F3';
+            
+            let btnHtml = '';
+            // 如果已經在徵求代班中，按鈕反灰不給點
+            if (shift.status === '徵求代班') {
+                btnHtml = `<button class="btn-book" style="background-color: #ff9800;" disabled>⏳ 徵求代班中 (等待他人接手)</button>`;
+            } else {
+                btnHtml = `<button class="btn-book" style="background-color: #dc3545;" onclick="submitAskSubstitute(${shift.recordRow}, '${shift.actDetails}')">⚠️ 取消排班 (尋找代班)</button>`;
+            }
             
             card.innerHTML = `
                 <h4 style="margin:0 0 10px 0;">${shift.actDetails}</h4>
-                <p class="meta-text">📝 認填時間：${shift.bookTime}</p>
-                <p class="meta-text">🔖 狀態：<span style="color: green; font-weight: bold;">${shift.status}</span></p>
-                <button class="btn-book" style="background-color: #dc3545;"
-                        onclick="submitCancel(${shift.recordRow}, '${shift.actDetails}')">
-                    ⚠️ 取消排班 (釋出空缺)
-                </button>
+                <p class="meta-text">📝 報名時間：${shift.bookTime}</p>
+                <p class="meta-text">🔖 狀態：<span style="color: ${shift.status==='正常'?'green':'#ff9800'}; font-weight: bold;">${shift.status}</span></p>
+                ${btnHtml}
             `;
             listDiv.appendChild(card);
         });
     }
 
-    // 送出取消排班請求
-    function submitCancel(recordRow, actDetails) {
+    // 送出取消(尋找代班)請求
+    function submitAskSubstitute(recordRow, actDetails) {
         const lineId = sessionStorage.getItem("volLineId");
-        
-        if (confirm(`確定要取消以下排班嗎？\n${actDetails}\n\n(注意：取消後名額將立即釋出給其他人填寫)`)) {
+        if (confirm(`若需取消，系統將幫您轉為「徵求代班」狀態。\n確認要尋找代班嗎？\n\n${actDetails}`)) {
             document.getElementById('myPanel').style.opacity = '0.5';
-            
             fetch(GAS_URL, {
                 method: 'POST',
-                body: JSON.stringify({
-                    action: "cancelShift",
-                    lineId: lineId,
-                    recordRow: recordRow
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
+                body: JSON.stringify({ action: "askSubstitute", lineId: lineId, recordRow: recordRow })
+            }).then(res => res.json()).then(data => {
                 document.getElementById('myPanel').style.opacity = '1';
-                if (data.status === "success") {
-                    alert("✅ " + data.message);
-                    fetchMySchedule(); // 重新整理個人班表
-                } else {
-                    alert("⚠️ 取消失敗：\n" + data.message);
-                }
-            })
-            .catch(err => {
-                document.getElementById('myPanel').style.opacity = '1';
-                alert("連線逾時，請確認網路狀態後再試。");
-            });
+                if (data.status === "success") { alert("✅ " + data.message); fetchMySchedule(); } 
+                else { alert("⚠️ 錯誤：\n" + data.message); }
+            }).catch(err => { document.getElementById('myPanel').style.opacity = '1'; alert("連線逾時。"); });
         }
     }
 
