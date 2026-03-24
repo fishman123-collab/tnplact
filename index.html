@@ -27,7 +27,7 @@
     <div id="statusMessage">系統載入中，請稍候...</div>
     
     <div id="buttonArea">
-        <button id="btn-master-schedule" class="btn">📅 總班表 (報名/代班)</button>
+        <button id="btn-master-schedule" class="btn">📅 總班表 (填班/代班)</button>
         <button id="btn-my-schedule" class="btn">👤 個人儀表板 (我的班表)</button>
         <button id="btn-staff-manage" class="btn btn-staff">⚙️ 館員管理介面 (取消/調整)</button>
     </div>
@@ -48,12 +48,12 @@
     </div>
     <div id="masterPanel" class="panel" style="background: transparent; padding: 0;">
         <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBack()">🔙 返回主選單</button>
-        <h3>📅 可報名班表</h3>
+        <h3>📅 可填班班表</h3>
         <div id="activityList">讀取清單中...</div>
     </div>
     <div id="myPanel" class="panel" style="background: transparent; padding: 0;">
         <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackFromMyPanel()">🔙 返回主選單</button>
-        <h3>👤 我的班表 (已報名)</h3>
+        <h3>👤 我的班表 (已填班)</h3>
         <div id="myActivityList">讀取清單中...</div>
     </div>
 </div>
@@ -165,7 +165,7 @@
         listDiv.innerHTML = ""; 
         
         if (activities.length === 0) {
-            listDiv.innerHTML = "目前沒有可報名的活動。";
+            listDiv.innerHTML = "目前沒有可填班的活動。";
             return;
         }
 
@@ -175,7 +175,7 @@
             
             // 判斷按鈕文字與狀態
             let btnDisabled = '';
-            let btnText = '✅ 點我報名';
+            let btnText = '✅ 點我填班';
             let btnColor = '#008CBA';
             
             if (act.isPreview) {
@@ -217,7 +217,7 @@
             return;
         }
 
-        if (confirm(`確定要報名：\n${actDetails} 嗎？\n\n(系統將進行搶班確認)`)) {
+        if (confirm(`確定要填班：\n${actDetails} 嗎？\n\n(系統將進行填班確認)`)) {
             // 先將畫面鎖定避免重複點擊
             document.getElementById('masterPanel').style.opacity = '0.5';
             
@@ -238,7 +238,7 @@
                     alert("🎉 恭喜您，" + data.message);
                     fetchActivities(); // 成功後自動重新整理班表名額
                 } else {
-                    alert("⚠️ 報名失敗：\n" + data.message);
+                    alert("⚠️ 填班失敗：\n" + data.message);
                     fetchActivities(); // 失敗也重新整理，可能名額剛好被搶走
                 }
             })
@@ -333,7 +333,7 @@
         listDiv.innerHTML = ""; 
         
         if (shifts.length === 0) {
-            listDiv.innerHTML = "您目前沒有報名任何活動班次喔！";
+            listDiv.innerHTML = "您目前沒有認填任何活動班次喔！";
             return;
         }
 
@@ -344,7 +344,7 @@
             
             card.innerHTML = `
                 <h4 style="margin:0 0 10px 0;">${shift.actDetails}</h4>
-                <p class="meta-text">📝 報名時間：${shift.bookTime}</p>
+                <p class="meta-text">📝 認填時間：${shift.bookTime}</p>
                 <p class="meta-text">🔖 狀態：<span style="color: green; font-weight: bold;">${shift.status}</span></p>
                 <button class="btn-book" style="background-color: #dc3545;"
                         onclick="submitCancel(${shift.recordRow}, '${shift.actDetails}')">
