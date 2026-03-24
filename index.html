@@ -243,11 +243,42 @@
             });
         }
     }
+    // 綁定「館員管理介面」按鈕點擊事件
     document.getElementById('btn-staff-manage').addEventListener('click', function() {
         const panel = document.getElementById('staffPanel');
-        // 切換顯示/隱藏
-        panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            panel.style.display = 'block';
+            loadParams(); // 展開面板時，自動去讀取最新設定
+        } else {
+            panel.style.display = 'none';
+        }
     });
+    // 向 GAS 讀取並填入系統參數
+    function loadParams() {
+        const msg = document.getElementById('saveMsg');
+        msg.style.color = "#666";
+        msg.innerText = "正在讀取目前設定...";
+
+        fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: "getParams" })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "success" && data.data) {
+                document.getElementById('target_month').value = data.data.targetMonth || "";
+                document.getElementById('preview_time').value = data.data.previewTime || "";
+                document.getElementById('phase1_time').value = data.data.phase1 || "";
+                document.getElementById('phase2_time').value = data.data.phase2 || "";
+                msg.innerText = ""; // 讀取完畢清空提示字
+            } else {
+                msg.innerText = "讀取設定失敗，可能尚無資料。";
+            }
+        })
+        .catch(err => {
+            msg.innerText = "讀取失敗，請檢查網路連線。";
+        });
+    }
 
      // 返回主選單
     function goBack() {
