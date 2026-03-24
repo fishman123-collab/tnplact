@@ -51,6 +51,11 @@
         <h3>📅 可報名班表</h3>
         <div id="activityList">讀取清單中...</div>
     </div>
+    <div id="myPanel" class="panel" style="background: transparent; padding: 0;">
+        <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackFromMyPanel()">🔙 返回主選單</button>
+        <h3>👤 我的班表 (已報名)</h3>
+        <div id="myActivityList">讀取清單中...</div>
+    </div>
 </div>
 
 <script>
@@ -284,6 +289,102 @@
     function goBack() {
         document.getElementById('masterPanel').style.display = 'none';
         document.getElementById('buttonArea').style.display = 'block';
+    }
+
+    // 從個人儀表板返回主選單
+    function goBackFromMyPanel() {
+        document.getElementById('myPanel').style.display = 'none';
+        document.getElementById('buttonArea').style.display = 'block';
+    }
+
+    // 綁定「個人儀表板」按鈕點擊事件
+    document.getElementById('btn-my-schedule').addEventListener('click', function() {
+        document.getElementById('buttonArea').style.display = 'none';
+        document.getElementById('myPanel').style.display = 'block';
+        fetchMySchedule();
+    });
+
+    // 向 GAS 請求個人班表
+    function fetchMySchedule() {
+        const listDiv = document.getElementById('myActivityList');
+        listDiv.innerHTML = "資料載入中，請稍候...";
+        const lineId = sessionStorage.getItem("volLineId");
+
+        fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: "getMySchedule", lineId: lineId })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "success") {
+                renderMySchedule(data.data);
+            } else {
+                listDiv.innerHTML = "讀取失敗：" + data.message;
+            }
+        })
+        .catch(err => {
+            listDiv.innerHTML = "網路錯誤，無法讀取您的班表。";
+        });
+    }
+
+    // 將個人班表繪製成畫面卡片
+    function renderMySchedule(shifts) {
+        const listDiv = document.getElementById('myActivityList');
+        listDiv.innerHTML = ""; 
+        
+        if (shifts.length === 0) {
+            listDiv.innerHTML = "您目前沒有報名任何活動班次喔！";
+            return;
+        }
+
+        shifts.forEach(shift => {
+            const card = document.createElement('div');
+            card.className = 'activity-card';
+            card.style.borderLeftColor = '#2196F3'; // 個人班表用藍色邊框
+            
+            card.innerHTML = `
+                <h4 style="margin:0 0 10px 0;">${shift.actDetails}</h4>
+                <p class="meta-text">📝 報名時間：${shift.bookTime}</p>
+                <p class="meta-text">🔖 狀態：<span style="color: green; font-weight: bold;">${shift.status}</span></p>
+                <button class="btn-book" style="background-color: #dc3545;"
+                        onclick="submitCancel(${shift.recordRow}, '${shift.actDetails}')">
+                    ⚠️ 取消排班 (釋出空缺)
+                </button>
+            `;
+            listDiv.appendChild(card);
+        });
+    }
+
+    // 送出取消排班請求
+    function submitCancel(recordRow, actDetails) {
+        const lineId = sessionStorage.getItem("volLineId");
+        
+        if (confirm(`確定要取消以下排班嗎？\n${actDetails}\n\n(注意：取消後名額將立即釋出給其他人填寫)`)) {
+            document.getElementById('myPanel').style.opacity = '0.5';
+            
+            fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: "cancelShift",
+                    lineId: lineId,
+                    recordRow: recordRow
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('myPanel').style.opacity = '1';
+                if (data.status === "success") {
+                    alert("✅ " + data.message);
+                    fetchMySchedule(); // 重新整理個人班表
+                } else {
+                    alert("⚠️ 取消失敗：\n" + data.message);
+                }
+            })
+            .catch(err => {
+                document.getElementById('myPanel').style.opacity = '1';
+                alert("連線逾時，請確認網路狀態後再試。");
+            });
+        }
     }
 
     // 儲存參數傳送給 GAS (加入 previewTime)
