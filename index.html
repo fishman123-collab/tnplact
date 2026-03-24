@@ -35,6 +35,8 @@
         <h3>⚙️ 排班時間設定</h3>
     <label>本次開放排班月份 (例如 4月)：</label>
         <input type="month" id="target_month">
+    <label>班表預覽開放時間 (僅供查看，無法填班)：</label>
+        <input type="datetime-local" id="preview_time">
         <label>第一階段開始時間 (限1班)：</label>
         <input type="datetime-local" id="phase1_time">
         
@@ -45,6 +47,7 @@
         <p id="saveMsg" style="color: red; font-size: 14px;"></p>
     </div>
     <div id="masterPanel" class="panel" style="background: transparent; padding: 0;">
+        <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBack()">🔙 返回主選單</button>
         <h3>📅 可報名班表</h3>
         <div id="activityList">讀取清單中...</div>
     </div>
@@ -151,10 +154,10 @@
         });
     }
 
-    // 將活動清單繪製成畫面卡片
+    // 將活動清單繪製成畫面卡片 (加入預覽狀態判斷)
     function renderActivities(activities) {
         const listDiv = document.getElementById('activityList');
-        listDiv.innerHTML = ""; // 清空載入中文字
+        listDiv.innerHTML = ""; 
         
         if (activities.length === 0) {
             listDiv.innerHTML = "目前沒有可報名的活動。";
@@ -165,18 +168,33 @@
             const isFull = act.remain <= 0;
             const actDetails = `${act.date} ${act.time} ${act.content}`;
             
-            // 建立卡片元素
+            // 判斷按鈕文字與狀態
+            let btnDisabled = '';
+            let btnText = '✅ 點我報名';
+            let btnColor = '#008CBA';
+            
+            if (act.isPreview) {
+                btnDisabled = 'disabled';
+                btnText = `👀 預覽中 (${act.p1TimeStr} 開放)`;
+                btnColor = '#ff9800'; // 橘黃色表示預覽
+            } else if (isFull) {
+                btnDisabled = 'disabled';
+                btnText = '❌ 已額滿';
+                btnColor = '#ccc';
+            }
+            
             const card = document.createElement('div');
             card.className = isFull ? 'activity-card full' : 'activity-card';
+            if(act.isPreview) card.style.borderLeftColor = '#ff9800'; // 預覽卡片邊框變橘色
             
             card.innerHTML = `
                 <h4 style="margin:0 0 10px 0;">${act.content}</h4>
                 <p class="meta-text">⏰ 時間：${act.date} ${act.time}</p>
                 <p class="meta-text">👥 名額：剩餘 <span style="color: ${isFull ? 'red' : 'green'}; font-weight: bold;">${act.remain}</span> / ${act.quota} 人</p>
-                <button class="btn-book" 
+                <button class="btn-book" style="background-color: ${btnColor};"
                         onclick="submitBooking(${act.index}, '${actDetails}')" 
-                        ${isFull ? 'disabled' : ''}>
-                    ${isFull ? '❌ 已額滿' : '✅ 點我報名'}
+                        ${btnDisabled}>
+                    ${btnText}
                 </button>
             `;
             listDiv.appendChild(card);
@@ -231,15 +249,22 @@
         panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
     });
 
-     // 儲存參數傳送給 GAS
+     // 返回主選單
+    function goBack() {
+        document.getElementById('masterPanel').style.display = 'none';
+        document.getElementById('buttonArea').style.display = 'block';
+    }
+
+    // 儲存參數傳送給 GAS (加入 previewTime)
     function saveParams() {
-        const tMonth = document.getElementById('target_month').value; // 新增目標月份
+        const tMonth = document.getElementById('target_month').value; 
+        const preview = document.getElementById('preview_time').value; // 新增
         const p1 = document.getElementById('phase1_time').value;
         const p2 = document.getElementById('phase2_time').value;
         const msg = document.getElementById('saveMsg');
 
-        if (!tMonth || !p1 || !p2) {
-            msg.innerText = "請完整填寫月份與兩個階段的時間！";
+        if (!tMonth || !p1 || !p2 || !preview) {
+            msg.innerText = "請完整填寫所有欄位的時間！";
             return;
         }
 
@@ -249,6 +274,7 @@
             body: JSON.stringify({
                 action: "saveParams",
                 targetMonth: tMonth,
+                previewTime: preview,
                 phase1: p1,
                 phase2: p2
             })
