@@ -323,9 +323,9 @@
             const card = document.createElement('div'); card.className = 'activity-card'; card.style.borderLeftColor = '#2196F3';
             
             let btnHtml = '';
-            // 如果已經在徵求代班中，按鈕反灰不給點
+            // 如果已經在徵求代班中，提供撤回按鈕
             if (shift.status === '徵求代班') {
-                btnHtml = `<button class="btn-book" style="background-color: #ff9800;" disabled>⏳ 徵求代班中 (等待他人接手)</button>`;
+                btnHtml = `<button class="btn-book" style="background-color: #6c757d;" onclick="submitRetractSubstitute(${shift.recordRow}, '${shift.actDetails}')">🔙 撤回代班請求 (恢復值勤)</button>`;
             } else {
                 btnHtml = `<button class="btn-book" style="background-color: #dc3545;" onclick="submitAskSubstitute(${shift.recordRow}, '${shift.actDetails}')">⚠️ 取消排班 (尋找代班)</button>`;
             }
@@ -348,6 +348,22 @@
             fetch(GAS_URL, {
                 method: 'POST',
                 body: JSON.stringify({ action: "askSubstitute", lineId: lineId, recordRow: recordRow })
+            }).then(res => res.json()).then(data => {
+                document.getElementById('myPanel').style.opacity = '1';
+                if (data.status === "success") { alert("✅ " + data.message); fetchMySchedule(); } 
+                else { alert("⚠️ 錯誤：\n" + data.message); }
+            }).catch(err => { document.getElementById('myPanel').style.opacity = '1'; alert("連線逾時。"); });
+        }
+    }
+
+    // 送出撤回代班請求
+    function submitRetractSubstitute(recordRow, actDetails) {
+        const lineId = sessionStorage.getItem("volLineId");
+        if (confirm(`確定要撤回代班請求嗎？\n(撤回後將恢復您的值勤狀態)\n\n${actDetails}`)) {
+            document.getElementById('myPanel').style.opacity = '0.5';
+            fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: "retractSubstitute", lineId: lineId, recordRow: recordRow })
             }).then(res => res.json()).then(data => {
                 document.getElementById('myPanel').style.opacity = '1';
                 if (data.status === "success") { alert("✅ " + data.message); fetchMySchedule(); } 
