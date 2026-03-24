@@ -33,6 +33,8 @@
     </div>
 <div id="staffPanel" class="panel">
         <h3>⚙️ 排班時間設定</h3>
+    <label>本次開放排班月份 (例如 4月)：</label>
+        <input type="month" id="target_month">
         <label>第一階段開始時間 (限1班)：</label>
         <input type="datetime-local" id="phase1_time">
         
@@ -229,23 +231,24 @@
         panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
     });
 
-    // 儲存參數傳送給 GAS
+     // 儲存參數傳送給 GAS
     function saveParams() {
+        const tMonth = document.getElementById('target_month').value; // 新增目標月份
         const p1 = document.getElementById('phase1_time').value;
         const p2 = document.getElementById('phase2_time').value;
         const msg = document.getElementById('saveMsg');
 
-        if (!p1 || !p2) {
-            msg.innerText = "請完整填寫兩個階段的時間！";
+        if (!tMonth || !p1 || !p2) {
+            msg.innerText = "請完整填寫月份與兩個階段的時間！";
             return;
         }
 
         msg.innerText = "儲存中...";
-        
         fetch(GAS_URL, {
             method: 'POST',
             body: JSON.stringify({
                 action: "saveParams",
+                targetMonth: tMonth,
                 phase1: p1,
                 phase2: p2
             })
