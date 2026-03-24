@@ -18,6 +18,8 @@
 .meta-text { color: #666; font-size: 14px; margin: 5px 0; }
 .btn-book { background: #008CBA; padding: 10px; width: 100%; border: none; color: white; border-radius: 5px; cursor: pointer; margin-top: 10px; }
 .btn-book:disabled { background: #ccc; cursor: not-allowed; }
+        .date-header { background: #343a40; color: white; padding: 8px 15px; border-radius: 5px; margin: 20px 0 10px 0; font-weight: bold; }
+.vol-tag { display: inline-block; background: #e9ecef; color: #333; padding: 3px 8px; border-radius: 12px; font-size: 13px; margin: 2px 5px 2px 0; }
     </style>
 </head>
 <body>
@@ -27,7 +29,9 @@
     <div id="statusMessage">系統載入中，請稍候...</div>
     
     <div id="buttonArea">
-        <button id="btn-master-schedule" class="btn">📅 總班表 (填班/代班)</button>
+        <button id="btn-master-schedule" class="btn" onclick="openBooking('一般')">📅 一般活動排班</button>
+        <button id="btn-tour-schedule" class="btn" style="background-color: #008CBA;" onclick="openBooking('導覽')">🚩 導覽活動排班</button>
+        <button id="btn-calendar-view" class="btn" style="background-color: #8e44ad;" onclick="openCalendar()">🗓️ 班表總覽 (看誰值班)</button>
         <button id="btn-my-schedule" class="btn">👤 個人儀表板 (我的班表)</button>
         <button id="btn-staff-manage" class="btn btn-staff">⚙️ 館員管理介面 (取消/調整)</button>
     </div>
@@ -51,10 +55,11 @@
         <h3>📅 可填班班表</h3>
         <div id="activityList">讀取清單中...</div>
     </div>
-    <div id="myPanel" class="panel" style="background: transparent; padding: 0;">
-        <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackFromMyPanel()">🔙 返回主選單</button>
-        <h3>👤 我的班表 (已填班)</h3>
-        <div id="myActivityList">讀取清單中...</div>
+    <div id="calendarPanel" class="panel" style="background: transparent; padding: 0;">
+        <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackToMain()">🔙 返回主選單</button>
+        <h3>🗓️ 班表總覽</h3>
+        <p style="text-align:center; color:#666; font-size:14px;">(顯示本月起的所有班表與排班人員)</p>
+        <div id="calendarList">讀取中...</div>
     </div>
 </div>
 
@@ -113,20 +118,26 @@
     // 根據回傳的權限決定顯示哪些按鈕
     function showButtonsByRole(userData) {
         if (userData.role === "staff") {
-            // 如果是館員，顯示總班表與館員管理介面
             document.getElementById('btn-master-schedule').style.display = "block";
+            document.getElementById('btn-tour-schedule').style.display = "block";
+            document.getElementById('btn-calendar-view').style.display = "block";
             document.getElementById('btn-staff-manage').style.display = "block";
         } else if (userData.role === "volunteer") {
-            // 如果是志工，顯示總班表與個人儀表板
             document.getElementById('btn-master-schedule').style.display = "block";
+            document.getElementById('btn-tour-schedule').style.display = "block";
+            document.getElementById('btn-calendar-view').style.display = "block";
             document.getElementById('btn-my-schedule').style.display = "block";
             
-            // 這裡可以把組別資訊存起來，方便下一頁使用
-            sessionStorage.setItem("volGroup", userData.group); 
-            sessionStorage.setItem("volConcurrent", userData.concurrent || "");
+            sessionStorage.setItem("volGroup", userData.group);
             sessionStorage.setItem("volName", userData.name);
-            
         }
+    }
+    // 統整的返回主選單函數
+    function goBackToMain() {
+        document.getElementById('masterPanel').style.display = 'none';
+        document.getElementById('myPanel').style.display = 'none';
+        document.getElementById('calendarPanel').style.display = 'none';
+        document.getElementById('buttonArea').style.display = 'block';
     }
 // 綁定「館員管理介面」按鈕的點擊事件，用來展開設定面板
     // 綁定「總班表」按鈕點擊事件
@@ -163,23 +174,24 @@
     function renderActivities(activities) {
         const listDiv = document.getElementById('activityList');
         listDiv.innerHTML = ""; 
-        
         if (activities.length === 0) { listDiv.innerHTML = "目前沒有可報名的活動。"; return; }
 
+        let hasActivities = false;
         activities.forEach(act => {
+            // 【新增】過濾：代班卡片全顯示，否則只顯示符合當前分類的活動
+            if (!act.isSubCard && act.actType !== currentBookingType) return;
+            hasActivities = true;
+
             const isFull = act.remain <= 0;
             const actDetails = act.isSubCard ? act.actDetails : `${act.date} ${act.time} ${act.content}`;
             
             let btnDisabled = ''; let btnText = '✅ 點我報名'; let btnColor = '#008CBA';
             let onclickFn = `submitBooking(${act.index}, '${actDetails}', '${act.actType}')`;
             
-            // 處理代班卡片
             if (act.isSubCard) {
                 btnText = '🙋‍♂️ 協助代班'; btnColor = '#ff5722';
                 onclickFn = `submitTakeSubstitute(${act.recordRow})`;
-            } 
-            // 處理預覽與額滿狀態
-            else if (act.isPreview) {
+            } else if (act.isPreview) {
                 btnDisabled = 'disabled'; btnText = `👀 預覽中 (${act.p1TimeStr} 開放填班)`; btnColor = '#ff9800';
             } else if (isFull) {
                 btnDisabled = 'disabled'; btnText = '❌ 已額滿'; btnColor = '#ccc';
@@ -188,7 +200,7 @@
             const card = document.createElement('div');
             card.className = isFull ? 'activity-card full' : 'activity-card';
             if (act.isPreview) card.style.borderLeftColor = '#ff9800';
-            if (act.isSubCard) card.style.borderLeftColor = '#ff5722'; // 代班卡片紅色邊緣
+            if (act.isSubCard) card.style.borderLeftColor = '#ff5722';
             
             card.innerHTML = `
                 <h4 style="margin:0 0 10px 0;">${act.content}</h4>
@@ -198,6 +210,8 @@
             `;
             listDiv.appendChild(card);
         });
+        
+        if(!hasActivities) listDiv.innerHTML = `目前沒有可報名的 ${currentBookingType} 活動。`;
     }
 
    // 送出一般報名
@@ -271,17 +285,21 @@
         });
     }
 
-     // 返回主選單
-    function goBack() {
-        document.getElementById('masterPanel').style.display = 'none';
-        document.getElementById('buttonArea').style.display = 'block';
-    }
+     // 相容舊的返回按鈕呼叫
+    function goBack() { goBackToMain(); }
 
     // 從個人儀表板返回主選單
-    function goBackFromMyPanel() {
-        document.getElementById('myPanel').style.display = 'none';
-        document.getElementById('buttonArea').style.display = 'block';
+    function goBackFromMyPanel() { goBackToMain(); }
+// 開啟填班列表 (傳入分類參數)
+    let currentBookingType = '一般';
+    function openBooking(type) {
+        currentBookingType = type;
+        document.getElementById('buttonArea').style.display = 'none';
+        document.getElementById('masterPanel').style.display = 'block';
+        document.querySelector('#masterPanel h3').innerText = `📅 可填班班表 (${type})`;
+        fetchActivities();
     }
+    
 
     // 綁定「個人儀表板」按鈕點擊事件
     document.getElementById('btn-my-schedule').addEventListener('click', function() {
@@ -405,6 +423,61 @@
         })
         .catch(err => {
             msg.innerText = "儲存失敗，請檢查網路連線。";
+        });
+    }
+
+    // 開啟全覽月曆
+    function openCalendar() {
+        document.getElementById('buttonArea').style.display = 'none';
+        document.getElementById('calendarPanel').style.display = 'block';
+        
+        const listDiv = document.getElementById('calendarList');
+        listDiv.innerHTML = "抓取班表中，請稍候...";
+        
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getCalendarData" }) })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "success") renderCalendar(data.data);
+            else listDiv.innerHTML = "讀取失敗：" + data.message;
+        }).catch(err => { listDiv.innerHTML = "網路錯誤。"; });
+    }
+
+    // 繪製日程表 (Agenda View)
+    function renderCalendar(calendarData) {
+        const listDiv = document.getElementById('calendarList');
+        listDiv.innerHTML = "";
+        
+        const dates = Object.keys(calendarData).sort(); // 將日期排序
+        if(dates.length === 0) { listDiv.innerHTML = "目前沒有任何班表資料。"; return; }
+
+        dates.forEach(date => {
+            // 插入日期標題 (例如：03/24(週二))
+            const dateHeader = document.createElement('div');
+            dateHeader.className = 'date-header';
+            dateHeader.innerText = `📅 ${date}`;
+            listDiv.appendChild(dateHeader);
+            
+            // 插入該日期的所有活動
+            calendarData[date].forEach(act => {
+                const card = document.createElement('div');
+                card.className = 'activity-card';
+                card.style.borderLeftColor = '#8e44ad'; // 月曆視圖用紫色邊緣
+                card.style.padding = '10px 15px';
+                
+                // 產生志工名牌標籤
+                let volTags = '';
+                if(act.volunteers.length === 0) {
+                    volTags = `<span class="vol-tag" style="background:#ffeeba; color:#856404;">尚未有人報名</span>`;
+                } else {
+                    act.volunteers.forEach(v => { volTags += `<span class="vol-tag">${v}</span>`; });
+                }
+
+                card.innerHTML = `
+                    <h5 style="margin: 0 0 5px 0; color:#333;">${act.time} - ${act.content}</h5>
+                    <div>${volTags}</div>
+                `;
+                listDiv.appendChild(card);
+            });
         });
     }
 </script>
