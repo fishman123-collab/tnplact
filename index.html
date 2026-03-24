@@ -11,15 +11,16 @@
         .btn { display: none; width: 100%; padding: 15px; margin: 10px 0; background-color: #00B900; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; text-align: center; }
         .btn-staff { background-color: #ff5722; }
         #statusMessage { text-align: center; color: #666; margin-bottom: 20px; }
-.panel { display: none; background: #e9ecef; padding: 15px; margin-top: 15px; border-radius: 8px; }
-.panel input { width: 90%; padding: 8px; margin: 5px 0 15px 0; }
+        .panel { display: none; background: #e9ecef; padding: 15px; margin-top: 15px; border-radius: 8px; }
+        .panel input { width: 90%; padding: 8px; margin: 5px 0 15px 0; }
         .activity-card { background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #00B900; }
-.activity-card.full { border-left-color: #dc3545; opacity: 0.7; }
-.meta-text { color: #666; font-size: 14px; margin: 5px 0; }
-.btn-book { background: #008CBA; padding: 10px; width: 100%; border: none; color: white; border-radius: 5px; cursor: pointer; margin-top: 10px; }
-.btn-book:disabled { background: #ccc; cursor: not-allowed; }
+        .activity-card.full { border-left-color: #dc3545; opacity: 0.7; }
+        .meta-text { color: #666; font-size: 14px; margin: 5px 0; }
+        .btn-book { background: #008CBA; padding: 10px; width: 100%; border: none; color: white; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        .btn-book:disabled { background: #ccc; cursor: not-allowed; }
         .date-header { background: #343a40; color: white; padding: 8px 15px; border-radius: 5px; margin: 20px 0 10px 0; font-weight: bold; }
-.vol-tag { display: inline-block; background: #e9ecef; color: #333; padding: 3px 8px; border-radius: 12px; font-size: 13px; margin: 2px 5px 2px 0; }
+        .vol-tag { display: inline-block; background: #e9ecef; color: #333; padding: 4px 10px; border-radius: 15px; font-size: 13px; margin: 2px 5px 2px 0; }
+        .btn-sm { font-family: '微軟正黑體'; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -35,26 +36,33 @@
         <button id="btn-my-schedule" class="btn">👤 個人儀表板 (我的班表)</button>
         <button id="btn-staff-manage" class="btn btn-staff">⚙️ 館員管理介面 (取消/調整)</button>
     </div>
-<div id="staffPanel" class="panel">
+
+    <div id="staffPanel" class="panel">
         <h3>⚙️ 排班時間設定</h3>
-    <label>本次開放排班月份 (例如 4月)：</label>
+        <label>本次開放排班月份 (例如 4月)：</label>
         <input type="month" id="target_month">
-    <label>班表預覽開放時間 (僅供查看，無法填班)：</label>
+        <label>班表預覽開放時間 (僅供查看，無法填班)：</label>
         <input type="datetime-local" id="preview_time">
         <label>第一階段開始時間 (限1班)：</label>
         <input type="datetime-local" id="phase1_time">
-        
         <label>第二階段開始時間 (無限制)：</label>
         <input type="datetime-local" id="phase2_time">
-        
         <button class="btn btn-staff" onclick="saveParams()" style="display: block; margin-top: 15px;">💾 儲存設定</button>
         <p id="saveMsg" style="color: red; font-size: 14px;"></p>
     </div>
+
     <div id="masterPanel" class="panel" style="background: transparent; padding: 0;">
-        <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBack()">🔙 返回主選單</button>
+        <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackToMain()">🔙 返回主選單</button>
         <h3>📅 可填班班表</h3>
         <div id="activityList">讀取清單中...</div>
     </div>
+
+    <div id="myPanel" class="panel" style="background: transparent; padding: 0;">
+        <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackToMain()">🔙 返回主選單</button>
+        <h3>👤 我的班表 (已填班)</h3>
+        <div id="myActivityList">讀取清單中...</div>
+    </div>
+
     <div id="calendarPanel" class="panel" style="background: transparent; padding: 0;">
         <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackToMain()">🔙 返回主選單</button>
         <h3>🗓️ 班表總覽</h3>
@@ -65,57 +73,32 @@
 
 <script>
     // ======== 請替換以下兩個網址/ID ========
-    const LIFF_ID = "2008914129-kU6EacB0"; // 填入您的 LIFF ID
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxAxfitZSSedHZCmix-gjdS8Z1kOJvcvT5BQA9JEqmHUZuppfMRuFn7bwQZtVppKVIa/exec"; // 填入剛部署的 GAS 網址
+    const LIFF_ID = "2008914129-kU6EacB0"; 
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxAxfitZSSedHZCmix-gjdS8Z1kOJvcvT5BQA9JEqmHUZuppfMRuFn7bwQZtVppKVIa/exec"; 
     // ========================================
 
-    // 網頁載入後立即執行 LIFF 初始化
     window.onload = function() {
         liff.init({ liffId: LIFF_ID })
             .then(() => {
-                if (!liff.isLoggedIn()) {
-                    liff.login(); // 如果沒登入，強制跳轉 LINE 登入
-                } else {
-                    liff.getProfile().then(profile => {
-                        checkUserRole(profile.userId); // 取得 LINE ID 後呼叫後端驗證
-                    });
-                }
+                if (!liff.isLoggedIn()) liff.login(); 
+                else liff.getProfile().then(profile => { checkUserRole(profile.userId); });
             })
-            .catch(err => {
-                document.getElementById('statusMessage').innerText = "LIFF 初始化失敗：" + err.message;
-            });
+            .catch(err => { document.getElementById('statusMessage').innerText = "LIFF 初始化失敗：" + err.message; });
     };
 
-    // 呼叫 GAS 驗證身分
     function checkUserRole(lineId) {
-        sessionStorage.setItem("volLineId", lineId); // 加入這行：一登入就立刻把 LINE ID 存起來
+        sessionStorage.setItem("volLineId", lineId);
         document.getElementById('statusMessage').innerText = "驗證身分中...";
-        
-        // 準備要傳給 GAS 的資料
-        const payload = {
-            action: "checkLogin",
-            lineId: lineId
-        };
-
-        fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        })
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "checkLogin", lineId: lineId }) })
         .then(response => response.json())
         .then(data => {
             if (data.status === "success") {
                 document.getElementById('statusMessage').innerText = `歡迎，${data.name}！`;
-                showButtonsByRole(data); // 根據權限顯示按鈕
-            } else {
-                document.getElementById('statusMessage').innerText = data.message;
-            }
-        })
-        .catch(error => {
-            document.getElementById('statusMessage').innerText = "網路錯誤，無法連線至資料庫。";
-        });
+                showButtonsByRole(data); 
+            } else { document.getElementById('statusMessage').innerText = data.message; }
+        }).catch(error => { document.getElementById('statusMessage').innerText = "網路錯誤，無法連線至資料庫。"; });
     }
 
-    // 根據回傳的權限決定顯示哪些按鈕
     function showButtonsByRole(userData) {
         if (userData.role === "staff") {
             document.getElementById('btn-master-schedule').style.display = "block";
@@ -127,65 +110,53 @@
             document.getElementById('btn-tour-schedule').style.display = "block";
             document.getElementById('btn-calendar-view').style.display = "block";
             document.getElementById('btn-my-schedule').style.display = "block";
-            
             sessionStorage.setItem("volGroup", userData.group);
             sessionStorage.setItem("volName", userData.name);
         }
     }
-    // 統整的返回主選單函數
+
+    // 統整的返回主選單函數 (修復所有返回錯誤)
     function goBackToMain() {
         document.getElementById('masterPanel').style.display = 'none';
         document.getElementById('myPanel').style.display = 'none';
         document.getElementById('calendarPanel').style.display = 'none';
         document.getElementById('buttonArea').style.display = 'block';
     }
-// 綁定「館員管理介面」按鈕的點擊事件，用來展開設定面板
-    // 綁定「總班表」按鈕點擊事件
-    document.getElementById('btn-master-schedule').addEventListener('click', function() {
-        // 隱藏選單，顯示班表面板
+
+    let currentBookingType = '一般';
+    function openBooking(type) {
+        currentBookingType = type;
         document.getElementById('buttonArea').style.display = 'none';
         document.getElementById('masterPanel').style.display = 'block';
+        document.querySelector('#masterPanel h3').innerText = `📅 可填班班表 (${type})`;
         fetchActivities();
-    });
+    }
 
-    // 向 GAS 請求活動清單
     function fetchActivities() {
         const listDiv = document.getElementById('activityList');
         listDiv.innerHTML = "資料載入中，請稍候...";
-        
-        fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: "getActivities" })
-        })
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getActivities" }) })
         .then(res => res.json())
         .then(data => {
-            if (data.status === "success") {
-                renderActivities(data.data);
-            } else {
-                listDiv.innerHTML = "讀取失敗：" + data.message;
-            }
-        })
-        .catch(err => {
-            listDiv.innerHTML = "網路錯誤，無法讀取班表。";
-        });
+            if (data.status === "success") renderActivities(data.data);
+            else listDiv.innerHTML = "讀取失敗：" + data.message;
+        }).catch(err => { listDiv.innerHTML = "網路錯誤，無法讀取班表。"; });
     }
 
-    // 將活動清單繪製成畫面卡片
     function renderActivities(activities) {
         const listDiv = document.getElementById('activityList');
         listDiv.innerHTML = ""; 
-        if (activities.length === 0) { listDiv.innerHTML = "目前沒有可報名的活動。"; return; }
+        if (activities.length === 0) { listDiv.innerHTML = "目前沒有可填班的活動。"; return; }
 
         let hasActivities = false;
         activities.forEach(act => {
-            // 【新增】過濾：代班卡片全顯示，否則只顯示符合當前分類的活動
             if (!act.isSubCard && act.actType !== currentBookingType) return;
             hasActivities = true;
 
             const isFull = act.remain <= 0;
             const actDetails = act.isSubCard ? act.actDetails : `${act.date} ${act.time} ${act.content}`;
             
-            let btnDisabled = ''; let btnText = '✅ 點我報名'; let btnColor = '#008CBA';
+            let btnDisabled = ''; let btnText = '✅ 點我填班'; let btnColor = '#008CBA';
             let onclickFn = `submitBooking(${act.index}, '${actDetails}', '${act.actType}')`;
             
             if (act.isSubCard) {
@@ -210,64 +181,75 @@
             `;
             listDiv.appendChild(card);
         });
-        
-        if(!hasActivities) listDiv.innerHTML = `目前沒有可報名的 ${currentBookingType} 活動。`;
+        if(!hasActivities) listDiv.innerHTML = `目前沒有可填班的 ${currentBookingType} 活動。`;
     }
 
-   // 送出一般報名
     function submitBooking(actIndex, actDetails, actType) {
         const lineId = sessionStorage.getItem("volLineId"); const name = sessionStorage.getItem("volName");
         if (!lineId) { alert("登入資訊遺失，請重新開啟 LINE 介面！"); return; }
-        if (confirm(`確定要報名：\n${actDetails} 嗎？`)) {
+        if (confirm(`確定要填班：\n${actDetails} 嗎？`)) {
             document.getElementById('masterPanel').style.opacity = '0.5';
-            fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: "bookShift", lineId: lineId, name: name, actIndex: actIndex, actDetails: actDetails, actType: actType })
-            }).then(res => res.json()).then(data => {
+            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "bookShift", lineId: lineId, name: name, actIndex: actIndex, actDetails: actDetails, actType: actType }) })
+            .then(res => res.json()).then(data => {
                 document.getElementById('masterPanel').style.opacity = '1';
-                if (data.status === "success") { alert("🎉 " + data.message); fetchActivities(); } 
-                else { alert("⚠️ 報名失敗：\n" + data.message); fetchActivities(); }
-            }).catch(err => { document.getElementById('masterPanel').style.opacity = '1'; alert("連線逾時。"); });
+                document.getElementById('calendarPanel').style.opacity = '1'; // 若是從月曆呼叫的，也解除鎖定
+                if (data.status === "success") { 
+                    alert("🎉 " + data.message); 
+                    // 根據目前開啟的面板重新整理資料
+                    if(document.getElementById('calendarPanel').style.display === 'block') openCalendar();
+                    else fetchActivities(); 
+                } 
+                else { 
+                    alert("⚠️ 填班失敗：\n" + data.message); 
+                    if(document.getElementById('calendarPanel').style.display === 'block') openCalendar();
+                    else fetchActivities(); 
+                }
+            }).catch(err => { 
+                document.getElementById('masterPanel').style.opacity = '1'; 
+                document.getElementById('calendarPanel').style.opacity = '1';
+                alert("連線逾時。"); 
+            });
         }
     }
 
-    // 點擊協助代班
     function submitTakeSubstitute(recordRow) {
         const lineId = sessionStorage.getItem("volLineId"); const name = sessionStorage.getItem("volName");
         if (confirm(`確定要接手這個代班嗎？\n(您的姓名將會取代原志工)`)) {
             document.getElementById('masterPanel').style.opacity = '0.5';
-            fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: "takeSubstitute", lineId: lineId, name: name, recordRow: recordRow })
-            }).then(res => res.json()).then(data => {
+            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "takeSubstitute", lineId: lineId, name: name, recordRow: recordRow }) })
+            .then(res => res.json()).then(data => {
                 document.getElementById('masterPanel').style.opacity = '1';
-                if (data.status === "success") { alert("🎉 " + data.message); fetchActivities(); } 
-                else { alert("⚠️ 代班失敗：\n" + data.message); fetchActivities(); }
-            }).catch(err => { document.getElementById('masterPanel').style.opacity = '1'; alert("連線逾時。"); });
+                document.getElementById('calendarPanel').style.opacity = '1';
+                if (data.status === "success") { 
+                    alert("🎉 " + data.message); 
+                    if(document.getElementById('calendarPanel').style.display === 'block') openCalendar();
+                    else fetchActivities(); 
+                } 
+                else { 
+                    alert("⚠️ 代班失敗：\n" + data.message); 
+                    if(document.getElementById('calendarPanel').style.display === 'block') openCalendar();
+                    else fetchActivities(); 
+                }
+            }).catch(err => { 
+                document.getElementById('masterPanel').style.opacity = '1'; 
+                document.getElementById('calendarPanel').style.opacity = '1';
+                alert("連線逾時。"); 
+            });
         }
     }
 
-    
-    // 綁定「館員管理介面」按鈕點擊事件
     document.getElementById('btn-staff-manage').addEventListener('click', function() {
         const panel = document.getElementById('staffPanel');
         if (panel.style.display === 'none' || panel.style.display === '') {
             panel.style.display = 'block';
-            loadParams(); // 展開面板時，自動去讀取最新設定
-        } else {
-            panel.style.display = 'none';
-        }
+            loadParams(); 
+        } else { panel.style.display = 'none'; }
     });
-    // 向 GAS 讀取並填入系統參數
+
     function loadParams() {
         const msg = document.getElementById('saveMsg');
-        msg.style.color = "#666";
-        msg.innerText = "正在讀取目前設定...";
-
-        fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: "getParams" })
-        })
+        msg.style.color = "#666"; msg.innerText = "正在讀取目前設定...";
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getParams" }) })
         .then(res => res.json())
         .then(data => {
             if (data.status === "success" && data.data) {
@@ -275,82 +257,45 @@
                 document.getElementById('preview_time').value = data.data.previewTime || "";
                 document.getElementById('phase1_time').value = data.data.phase1 || "";
                 document.getElementById('phase2_time').value = data.data.phase2 || "";
-                msg.innerText = ""; // 讀取完畢清空提示字
-            } else {
-                msg.innerText = "讀取設定失敗，可能尚無資料。";
-            }
-        })
-        .catch(err => {
-            msg.innerText = "讀取失敗，請檢查網路連線。";
-        });
+                msg.innerText = ""; 
+            } else { msg.innerText = "讀取設定失敗，可能尚無資料。"; }
+        }).catch(err => { msg.innerText = "讀取失敗，請檢查網路連線。"; });
     }
 
-     // 相容舊的返回按鈕呼叫
-    function goBack() { goBackToMain(); }
-
-    // 從個人儀表板返回主選單
-    function goBackFromMyPanel() { goBackToMain(); }
-// 開啟填班列表 (傳入分類參數)
-    let currentBookingType = '一般';
-    function openBooking(type) {
-        currentBookingType = type;
-        document.getElementById('buttonArea').style.display = 'none';
-        document.getElementById('masterPanel').style.display = 'block';
-        document.querySelector('#masterPanel h3').innerText = `📅 可填班班表 (${type})`;
-        fetchActivities();
-    }
-    
-
-    // 綁定「個人儀表板」按鈕點擊事件
     document.getElementById('btn-my-schedule').addEventListener('click', function() {
         document.getElementById('buttonArea').style.display = 'none';
         document.getElementById('myPanel').style.display = 'block';
         fetchMySchedule();
     });
 
-    // 向 GAS 請求個人班表
     function fetchMySchedule() {
         const listDiv = document.getElementById('myActivityList');
         listDiv.innerHTML = "資料載入中，請稍候...";
         const lineId = sessionStorage.getItem("volLineId");
-
-        fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: "getMySchedule", lineId: lineId })
-        })
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getMySchedule", lineId: lineId }) })
         .then(res => res.json())
         .then(data => {
-            if (data.status === "success") {
-                renderMySchedule(data.data);
-            } else {
-                listDiv.innerHTML = "讀取失敗：" + data.message;
-            }
-        })
-        .catch(err => {
-            listDiv.innerHTML = "網路錯誤，無法讀取您的班表。";
-        });
+            if (data.status === "success") renderMySchedule(data.data);
+            else listDiv.innerHTML = "讀取失敗：" + data.message;
+        }).catch(err => { listDiv.innerHTML = "網路錯誤，無法讀取您的班表。"; });
     }
 
-    // 將個人班表繪製成畫面卡片
     function renderMySchedule(shifts) {
         const listDiv = document.getElementById('myActivityList');
         listDiv.innerHTML = ""; 
-        if (shifts.length === 0) { listDiv.innerHTML = "您目前沒有報名任何活動班次喔！"; return; }
+        if (shifts.length === 0) { listDiv.innerHTML = "您目前沒有填寫任何活動班次喔！"; return; }
 
         shifts.forEach(shift => {
             const card = document.createElement('div'); card.className = 'activity-card'; card.style.borderLeftColor = '#2196F3';
-            
             let btnHtml = '';
-            // 如果已經在徵求代班中，提供撤回按鈕
             if (shift.status === '徵求代班') {
                 btnHtml = `<button class="btn-book" style="background-color: #6c757d;" onclick="submitRetractSubstitute(${shift.recordRow}, '${shift.actDetails}')">🔙 撤回代班請求 (恢復值勤)</button>`;
             } else {
                 btnHtml = `<button class="btn-book" style="background-color: #dc3545;" onclick="submitAskSubstitute(${shift.recordRow}, '${shift.actDetails}')">⚠️ 取消排班 (尋找代班)</button>`;
             }
-            
             card.innerHTML = `
                 <h4 style="margin:0 0 10px 0;">${shift.actDetails}</h4>
-                <p class="meta-text">📝 報名時間：${shift.bookTime}</p>
+                <p class="meta-text">📝 填班時間：${shift.bookTime}</p>
                 <p class="meta-text">🔖 狀態：<span style="color: ${shift.status==='正常'?'green':'#ff9800'}; font-weight: bold;">${shift.status}</span></p>
                 ${btnHtml}
             `;
@@ -358,15 +303,12 @@
         });
     }
 
-    // 送出取消(尋找代班)請求
     function submitAskSubstitute(recordRow, actDetails) {
         const lineId = sessionStorage.getItem("volLineId");
         if (confirm(`若需取消，系統將幫您轉為「徵求代班」狀態。\n確認要尋找代班嗎？\n\n${actDetails}`)) {
             document.getElementById('myPanel').style.opacity = '0.5';
-            fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: "askSubstitute", lineId: lineId, recordRow: recordRow })
-            }).then(res => res.json()).then(data => {
+            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "askSubstitute", lineId: lineId, recordRow: recordRow }) })
+            .then(res => res.json()).then(data => {
                 document.getElementById('myPanel').style.opacity = '1';
                 if (data.status === "success") { alert("✅ " + data.message); fetchMySchedule(); } 
                 else { alert("⚠️ 錯誤：\n" + data.message); }
@@ -374,15 +316,12 @@
         }
     }
 
-    // 送出撤回代班請求
     function submitRetractSubstitute(recordRow, actDetails) {
         const lineId = sessionStorage.getItem("volLineId");
         if (confirm(`確定要撤回代班請求嗎？\n(撤回後將恢復您的值勤狀態)\n\n${actDetails}`)) {
             document.getElementById('myPanel').style.opacity = '0.5';
-            fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: "retractSubstitute", lineId: lineId, recordRow: recordRow })
-            }).then(res => res.json()).then(data => {
+            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "retractSubstitute", lineId: lineId, recordRow: recordRow }) })
+            .then(res => res.json()).then(data => {
                 document.getElementById('myPanel').style.opacity = '1';
                 if (data.status === "success") { alert("✅ " + data.message); fetchMySchedule(); } 
                 else { alert("⚠️ 錯誤：\n" + data.message); }
@@ -390,50 +329,28 @@
         }
     }
 
-    // 儲存參數傳送給 GAS (加入 previewTime)
     function saveParams() {
-        const tMonth = document.getElementById('target_month').value; 
-        const preview = document.getElementById('preview_time').value; // 新增
+        const tMonth = document.getElementById('target_month').value;
+        const preview = document.getElementById('preview_time').value; 
         const p1 = document.getElementById('phase1_time').value;
         const p2 = document.getElementById('phase2_time').value;
         const msg = document.getElementById('saveMsg');
 
-        if (!tMonth || !p1 || !p2 || !preview) {
-            msg.innerText = "請完整填寫所有欄位的時間！";
-            return;
-        }
-
+        if (!tMonth || !p1 || !p2 || !preview) { msg.innerText = "請完整填寫所有欄位的時間！"; return; }
         msg.innerText = "儲存中...";
-        fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify({
-                action: "saveParams",
-                targetMonth: tMonth,
-                previewTime: preview,
-                phase1: p1,
-                phase2: p2
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === "success") {
-                msg.style.color = "green";
-                msg.innerText = "✅ 儲存成功！";
-            }
-        })
-        .catch(err => {
-            msg.innerText = "儲存失敗，請檢查網路連線。";
-        });
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "saveParams", targetMonth: tMonth, previewTime: preview, phase1: p1, phase2: p2 }) })
+        .then(res => res.json()).then(data => {
+            if (data.status === "success") { msg.style.color = "green"; msg.innerText = "✅ 儲存成功！"; }
+        }).catch(err => { msg.innerText = "儲存失敗，請檢查網路連線。"; });
     }
 
-    // 開啟全覽月曆
+    // 🌟 升級版：全覽月曆動態生成
     function openCalendar() {
         document.getElementById('buttonArea').style.display = 'none';
         document.getElementById('calendarPanel').style.display = 'block';
         
         const listDiv = document.getElementById('calendarList');
         listDiv.innerHTML = "抓取班表中，請稍候...";
-        
         fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getCalendarData" }) })
         .then(res => res.json())
         .then(data => {
@@ -442,39 +359,50 @@
         }).catch(err => { listDiv.innerHTML = "網路錯誤。"; });
     }
 
-    // 繪製日程表 (Agenda View)
     function renderCalendar(calendarData) {
         const listDiv = document.getElementById('calendarList');
         listDiv.innerHTML = "";
         
-        const dates = Object.keys(calendarData).sort(); // 將日期排序
+        const dates = Object.keys(calendarData).sort(); 
         if(dates.length === 0) { listDiv.innerHTML = "目前沒有任何班表資料。"; return; }
 
         dates.forEach(date => {
-            // 插入日期標題 (例如：03/24(週二))
             const dateHeader = document.createElement('div');
             dateHeader.className = 'date-header';
             dateHeader.innerText = `📅 ${date}`;
             listDiv.appendChild(dateHeader);
             
-            // 插入該日期的所有活動
             calendarData[date].forEach(act => {
                 const card = document.createElement('div');
                 card.className = 'activity-card';
-                card.style.borderLeftColor = '#8e44ad'; // 月曆視圖用紫色邊緣
+                card.style.borderLeftColor = '#8e44ad'; 
                 card.style.padding = '10px 15px';
                 
-                // 產生志工名牌標籤
-                let volTags = '';
-                if(act.volunteers.length === 0) {
-                    volTags = `<span class="vol-tag" style="background:#ffeeba; color:#856404;">尚未有人報名</span>`;
-                } else {
-                    act.volunteers.forEach(v => { volTags += `<span class="vol-tag">${v}</span>`; });
-                }
+                let tagsHtml = '';
+                
+                // 逐一渲染該活動的每個空缺與志工
+                act.slots.forEach(slot => {
+                    // 已排班的志工或代班需求
+                    slot.vols.forEach(v => {
+                        if (v.isSub) {
+                            tagsHtml += `<button class="btn-sm" style="background:#dc3545; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" onclick="submitTakeSubstitute(${v.recordRow})">🆘 ${v.name} 徵求代班 (點擊接手)</button>`;
+                        } else {
+                            tagsHtml += `<span class="vol-tag" style="background:#e9ecef; color:#333; padding:4px 10px; border-radius:15px; margin:2px 5px 2px 0;">✔️ ${v.name} ${slot.role}</span>`;
+                        }
+                    });
+                    
+                    // 剩餘空缺轉換為「填班按鈕」
+                    for (let i = 0; i < slot.remain; i++) {
+                        let btnText = act.isPreview ? '👀 預覽中' : `➕ 點我填班 ${slot.role}`;
+                        let btnColor = act.isPreview ? '#ff9800' : '#008CBA';
+                        let disabledAttr = act.isPreview ? 'disabled' : '';
+                        tagsHtml += `<button class="btn-sm" style="background:${btnColor}; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer;" onclick="submitBooking(${act.index}, '${slot.actDetails}', '${act.actType}')" ${disabledAttr}>${btnText}</button>`;
+                    }
+                });
 
                 card.innerHTML = `
-                    <h5 style="margin: 0 0 5px 0; color:#333;">${act.time} - ${act.content}</h5>
-                    <div>${volTags}</div>
+                    <h5 style="margin: 0 0 8px 0; color:#333; line-height: 1.4;">${act.time} - ${act.content}</h5>
+                    <div style="line-height: 2.2;">${tagsHtml}</div>
                 `;
                 listDiv.appendChild(card);
             });
