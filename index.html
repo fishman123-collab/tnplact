@@ -409,12 +409,12 @@
                 
                 act.slots.forEach(slot => {
                     slot.vols.forEach(v => {
-                        // 【館員視角】可以點擊所有人，查看電話並強制取消
+                        // 【館員視角】可以點擊所有人，查看電話與LINE名稱並強制取消
                         if (userRole === "staff") {
                             let statusText = v.isSub ? '🆘 (徵求代班)' : '✔️';
                             let bgColor = v.isSub ? '#dc3545' : '#e9ecef';
                             let textColor = v.isSub ? 'white' : '#333';
-                            tagsHtml += `<span class="vol-tag" style="background:${bgColor}; color:${textColor}; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="staffManageVol('${v.name}', '${v.phone}', ${v.recordRow}, '${slot.actDetails}')">${statusText} ${v.name} ${slot.role}</span>`;
+                            tagsHtml += `<span class="vol-tag" style="background:${bgColor}; color:${textColor}; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="staffManageVol('${v.name}', '${v.phone}', '${v.lineName}', ${v.recordRow}, '${slot.actDetails}')">${statusText} ${v.name} ${slot.role}</span>`;
                         } 
                         // 【志工視角】維持原樣
                         else {
@@ -448,9 +448,9 @@
             });
         });
     }
-// 【新增】館員專屬的志工管理呼叫
-    function staffManageVol(volName, phone, recordRow, actDetails) {
-        const msg = `👤 志工：${volName}\n📞 電話：${phone}\n\n📅 班次：\n${actDetails}\n\n👉 是否要將此志工的排班「強制取消」並釋出名額？`;
+// 【館員專屬】志工管理與強制取消
+    function staffManageVol(volName, phone, lineName, recordRow, actDetails) {
+        const msg = `👤 志工：${volName}\n📞 電話：${phone}\n💬 LINE名稱：${lineName}\n\n📅 班次：\n${actDetails}\n\n👉 是否要將此志工的排班「強制取消」並釋出名額？`;
         if (confirm(msg)) {
             document.getElementById('calendarPanel').style.opacity = '0.5';
             fetch(GAS_URL, { 
