@@ -71,6 +71,15 @@
         <div id="calendarList">讀取中...</div>
     </div>
 </div>
+    <div id="staffModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 20px; border-radius: 10px; width: 85%; max-width: 350px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+            <h3 style="margin-top: 0; color: #333; border-bottom: 2px solid #00B900; padding-bottom: 10px;">👤 志工詳細資訊</h3>
+            <div id="staffModalContent" style="line-height: 1.8; color: #444; margin-bottom: 20px; font-size: 15px;">
+                </div>
+            <button class="btn-book" style="background-color: #dc3545; margin-bottom: 12px; font-weight: bold;" onclick="executeStaffCancel()">⚠️ 強制取消此排班</button>
+            <button class="btn" style="background-color: #6c757d; display: block; margin: 0; font-weight: bold;" onclick="closeStaffModal()">關閉視窗</button>
+        </div>
+    </div>
 
 <script>
     // ======== 請替換以下兩個網址/ID ========
@@ -448,26 +457,62 @@
             });
         });
     }
-// 【館員專屬】志工管理與強制取消
+let currentCancelData = null; // 用來暫存要取消的資料
+
+    // 【館員專屬】志工管理 (改為開啟安全彈窗)
     function staffManageVol(volName, phone, lineName, recordRow, actDetails) {
-        const msg = `👤 志工：${volName}\n📞 電話：${phone}\n💬 LINE名稱：${lineName}\n\n📅 班次：\n${actDetails}\n\n👉 是否要將此志工的排班「強制取消」並釋出名額？`;
-        if (confirm(msg)) {
-            document.getElementById('calendarPanel').style.opacity = '0.5';
+        // 準備要顯示在彈窗裡面的 HTML 內容 (電話加上 tel: 連結方便手機直撥)
+        const contentHtml = `
+            <b>姓名：</b> ${volName}<br>
+            <b>電話：</b> <a href="tel:${phone}" style="color: #008CBA; text-decoration: none; font-weight: bold;">${phone}</a><br>
+            <b>LINE名稱：</b> ${lineName}<br><br>
+            <div style="font-size: 13px; color: #777; background: #f8f9fa; padding: 8px; border-radius: 5px;">
+                📅 <b>班次：</b><br>${actDetails}
+            </div>
+        `;
+        
+        // 填入內容並儲存暫存資料
+        document.getElementById('staffModalContent').innerHTML = contentHtml;
+        currentCancelData = { recordRow: recordRow, volName: volName };
+        
+        // 顯示彈窗 (使用 flex 達成垂直水平置中)
+        document.getElementById('staffModal').style.display = 'flex';
+    }
+
+    // 關閉館員彈窗
+    function closeStaffModal() {
+        document.getElementById('staffModal').style.display = 'none';
+        currentCancelData = null; // 清空暫存，確保安全
+    }
+
+    // 執行強制取消 (彈窗內的紅色按鈕觸發)
+    function executeStaffCancel() {
+        if (!currentCancelData) return;
+        
+        // 破壞性動作，進行最後一次安全確認
+        if (confirm(`⚠️ 最終確認\n\n確定要將 ${currentCancelData.volName} 的排班強制取消並釋出名額嗎？`)) {
+            closeStaffModal(); // 先關閉彈窗
+            document.getElementById('calendarPanel').style.opacity = '0.5'; // 畫面變淡表示載入中
+            
             fetch(GAS_URL, { 
                 method: 'POST', 
-                body: JSON.stringify({ action: "staffCancelShift", lineId: sessionStorage.getItem("volLineId"), recordRow: recordRow }) 
+                body: JSON.stringify({ 
+                    action: "staffCancelShift", 
+                    lineId: sessionStorage.getItem("volLineId"), 
+                    recordRow: currentCancelData.recordRow 
+                }) 
             })
             .then(res => res.json()).then(data => {
                 document.getElementById('calendarPanel').style.opacity = '1';
                 if (data.status === "success") { 
                     alert("✅ " + data.message); 
-                    openCalendar(); 
+                    openCalendar(); // 重新整理月曆
                 } else { 
                     alert("⚠️ 失敗：" + data.message); 
                 }
             }).catch(err => { 
                 document.getElementById('calendarPanel').style.opacity = '1'; 
-                alert("連線逾時。"); 
+                alert("連線逾時，請確認網路狀態。"); 
             });
         }
     }
