@@ -292,7 +292,7 @@
             if (shift.status === '徵求代班') {
                 btnHtml = `<button class="btn-book" style="background-color: #6c757d;" onclick="submitRetractSubstitute(${shift.recordRow}, '${shift.actDetails}')">🔙 撤回代班請求 (恢復值勤)</button>`;
             } else {
-                btnHtml = `<button class="btn-book" style="background-color: #dc3545;" onclick="submitAskSubstitute(${shift.recordRow}, '${shift.actDetails}')">⚠️ 取消排班 (尋找代班)</button>`;
+                btnHtml = `<button class="btn-book" style="background-color: #dc3545; border: 1px solid #a71d2a; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="submitAskSubstitute(${shift.recordRow}, '${shift.actDetails}')">❌ 我要請假 (徵求代班)</button>`;
             }
             card.innerHTML = `
                 <h4 style="margin:0 0 10px 0;">${shift.actDetails}</h4>
@@ -306,7 +306,7 @@
 
     function submitAskSubstitute(recordRow, actDetails) {
         const lineId = sessionStorage.getItem("volLineId");
-        if (confirm(`若需取消，系統將幫您轉為「徵求代班」狀態。\n確認要尋找代班嗎？\n\n${actDetails}`)) {
+        if (confirm(`確定要退出這個排班嗎？\n\n系統將自動判定：\n1. 若在第一階段排班期，將直接取消並釋出名額。\n2. 若已進入第二階段，則會轉為「徵求代班」狀態。\n\n📅 班次資訊：\n${actDetails}`)) {
             document.getElementById('myPanel').style.opacity = '0.5';
             fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "askSubstitute", lineId: lineId, recordRow: recordRow }) })
             .then(res => res.json()).then(data => {
