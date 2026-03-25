@@ -524,9 +524,11 @@ let currentCancelData = null; // 用來暫存要取消的資料
     function executeStaffCancel() {
         if (!currentCancelData) return;
         
+        const targetRow = currentCancelData.recordRow; // 【修正】先把要刪除的列數存起來
+        
         // 破壞性動作，進行最後一次安全確認
         if (confirm(`⚠️ 最終確認\n\n確定要將 ${currentCancelData.volName} 的排班強制取消並釋出名額嗎？`)) {
-            closeStaffModal(); // 先關閉彈窗
+            closeStaffModal(); // 先關閉彈窗 (現在清空暫存也沒關係了，因為已經存入 targetRow)
             document.getElementById('calendarPanel').style.opacity = '0.5'; // 畫面變淡表示載入中
             
             fetch(GAS_URL, { 
@@ -534,7 +536,7 @@ let currentCancelData = null; // 用來暫存要取消的資料
                 body: JSON.stringify({ 
                     action: "staffCancelShift", 
                     lineId: sessionStorage.getItem("volLineId"), 
-                    recordRow: currentCancelData.recordRow 
+                    recordRow: targetRow // 【修正】改用剛剛安全存起來的變數
                 }) 
             })
             .then(res => res.json()).then(data => {
