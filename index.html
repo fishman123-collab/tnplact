@@ -161,7 +161,7 @@
             
             if (act.isSubCard) {
                 btnText = '🙋‍♂️ 協助代班'; btnColor = '#ff5722';
-                onclickFn = `submitTakeSubstitute(${act.recordRow})`;
+                onclickFn = `submitTakeSubstitute(${act.recordRow}, '${actDetails}')`; // 帶入完整明細
             } else if (act.isPreview) {
                 btnDisabled = 'disabled'; btnText = `👀 預覽中 (${act.p1TimeStr} 開放填班)`; btnColor = '#ff9800';
             } else if (isFull) {
@@ -212,9 +212,10 @@
         }
     }
 
-    function submitTakeSubstitute(recordRow) {
+    function submitTakeSubstitute(recordRow, actDetails) {
         const lineId = sessionStorage.getItem("volLineId"); const name = sessionStorage.getItem("volName");
-        if (confirm(`確定要接手這個代班嗎？\n(您的姓名將會取代原志工)`)) {
+        // 【修正】在彈出視窗中加入完整的日期、時間與活動名稱
+        if (confirm(`確定要接手這個代班嗎？\n(您的姓名將會取代原志工)\n\n📅 班次資訊：\n${actDetails}`)) {
             document.getElementById('masterPanel').style.opacity = '0.5';
             fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "takeSubstitute", lineId: lineId, name: name, recordRow: recordRow }) })
             .then(res => res.json()).then(data => {
@@ -385,7 +386,8 @@
                     // 已排班的志工或代班需求
                     slot.vols.forEach(v => {
                         if (v.isSub) {
-                            tagsHtml += `<button class="btn-sm" style="background:#dc3545; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" onclick="submitTakeSubstitute(${v.recordRow})">🆘 ${v.name} 徵求代班 (點擊接手)</button>`;
+                            // 加入 v.actDetails 讓彈窗可以顯示完整資訊
+                            tagsHtml += `<button class="btn-sm" style="background:#dc3545; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" onclick="submitTakeSubstitute(${v.recordRow}, '${v.actDetails}')">🆘 ${v.name} 徵求代班 (點擊接手)</button>`;
                         } else {
                             tagsHtml += `<span class="vol-tag" style="background:#e9ecef; color:#333; padding:4px 10px; border-radius:15px; margin:2px 5px 2px 0;">✔️ ${v.name} ${slot.role}</span>`;
                         }
