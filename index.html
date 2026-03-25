@@ -411,7 +411,16 @@
             calendarData[date].forEach(act => {
                 const card = document.createElement('div');
                 card.className = 'activity-card';
-                card.style.borderLeftColor = '#8e44ad'; 
+                
+                // 【視覺優化】判斷活動類型，給予不同的柔和顏色區別
+                if (act.actType === '導覽') {
+                    card.style.borderLeftColor = '#17a2b8'; // 導覽：使用柔和的湖水藍色
+                    card.style.backgroundColor = '#f4fafb'; // 導覽：加上極度淡的藍色背景
+                } else {
+                    card.style.borderLeftColor = '#8e44ad'; // 一般：維持原本的紫色
+                    card.style.backgroundColor = '#ffffff'; // 一般：純白背景
+                }
+                
                 card.style.padding = '10px 15px';
                 
                 let tagsHtml = '';
