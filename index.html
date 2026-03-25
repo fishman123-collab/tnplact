@@ -35,7 +35,7 @@
         <button id="btn-tour-schedule" class="btn" style="background-color: #008CBA;" onclick="openBooking('導覽')">🚩 導覽活動排班</button>
         <button id="btn-calendar-view" class="btn" style="background-color: #8e44ad;" onclick="openCalendar()">🗓️ 班表總覽 (看誰值班)</button>
         <button id="btn-my-schedule" class="btn">👤 個人儀表板 (我的班表)</button>
-        <button id="btn-staff-manage" class="btn btn-staff">⚙️ 館員管理介面 (取消/調整)</button>
+        <button id="btn-staff-manage" class="btn btn-staff">⚙️ 排班時間設定</button>
     </div>
 
     <div id="staffPanel" class="panel">
@@ -100,17 +100,25 @@
         }).catch(error => { document.getElementById('statusMessage').innerText = "網路錯誤，無法連線至資料庫。"; });
     }
 
+    // 根據回傳的權限決定顯示哪些按鈕
     function showButtonsByRole(userData) {
+        sessionStorage.setItem("userRole", userData.role); // 記住身分
+        
         if (userData.role === "staff") {
             document.getElementById('btn-master-schedule').style.display = "block";
             document.getElementById('btn-tour-schedule').style.display = "block";
             document.getElementById('btn-calendar-view').style.display = "block";
-            document.getElementById('btn-staff-manage').style.display = "block";
+            
+            // 只有系統管理員，或推廣組的志工管理員才顯示「排班時間設定」
+            if (userData.canEditTime) {
+                document.getElementById('btn-staff-manage').style.display = "block";
+            }
         } else if (userData.role === "volunteer") {
             document.getElementById('btn-master-schedule').style.display = "block";
             document.getElementById('btn-tour-schedule').style.display = "block";
             document.getElementById('btn-calendar-view').style.display = "block";
             document.getElementById('btn-my-schedule').style.display = "block";
+            
             sessionStorage.setItem("volGroup", userData.group);
             sessionStorage.setItem("volName", userData.name);
         }
@@ -359,14 +367,16 @@
         }).catch(err => { msg.innerText = "儲存失敗，請檢查網路連線。"; });
     }
 
-    // 🌟 升級版：全覽月曆動態生成
+    // 開啟全覽月曆 (加入傳遞 lineId 以判定館員身分)
     function openCalendar() {
         document.getElementById('buttonArea').style.display = 'none';
         document.getElementById('calendarPanel').style.display = 'block';
         
         const listDiv = document.getElementById('calendarList');
         listDiv.innerHTML = "抓取班表中，請稍候...";
-        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getCalendarData" }) })
+        
+        const lineId = sessionStorage.getItem("volLineId");
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getCalendarData", lineId: lineId }) })
         .then(res => res.json())
         .then(data => {
             if (data.status === "success") renderCalendar(data.data);
@@ -374,9 +384,11 @@
         }).catch(err => { listDiv.innerHTML = "網路錯誤。"; });
     }
 
+    // 繪製日程表 (加入館員專屬的點擊電話與踢人介面)
     function renderCalendar(calendarData) {
         const listDiv = document.getElementById('calendarList');
         listDiv.innerHTML = "";
+        const userRole = sessionStorage.getItem("userRole");
         
         const dates = Object.keys(calendarData).sort(); 
         if(dates.length === 0) { listDiv.innerHTML = "目前沒有任何班表資料。"; return; }
@@ -395,24 +407,36 @@
                 
                 let tagsHtml = '';
                 
-                // 逐一渲染該活動的每個空缺與志工
                 act.slots.forEach(slot => {
-                    // 已排班的志工或代班需求
                     slot.vols.forEach(v => {
-                        if (v.isSub) {
-                            // 加入 v.actDetails 讓彈窗可以顯示完整資訊
-                            tagsHtml += `<button class="btn-sm" style="background:#dc3545; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" onclick="submitTakeSubstitute(${v.recordRow}, '${v.actDetails}')">🆘 ${v.name} 徵求代班 (點擊接手)</button>`;
-                        } else {
-                            tagsHtml += `<span class="vol-tag" style="background:#e9ecef; color:#333; padding:4px 10px; border-radius:15px; margin:2px 5px 2px 0;">✔️ ${v.name} ${slot.role}</span>`;
+                        // 【館員視角】可以點擊所有人，查看電話並強制取消
+                        if (userRole === "staff") {
+                            let statusText = v.isSub ? '🆘 (徵求代班)' : '✔️';
+                            let bgColor = v.isSub ? '#dc3545' : '#e9ecef';
+                            let textColor = v.isSub ? 'white' : '#333';
+                            tagsHtml += `<span class="vol-tag" style="background:${bgColor}; color:${textColor}; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="staffManageVol('${v.name}', '${v.phone}', ${v.recordRow}, '${slot.actDetails}')">${statusText} ${v.name} ${slot.role}</span>`;
+                        } 
+                        // 【志工視角】維持原樣
+                        else {
+                            if (v.isSub) {
+                                tagsHtml += `<button class="btn-sm" style="background:#dc3545; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" onclick="submitTakeSubstitute(${v.recordRow}, '${slot.actDetails}')">🆘 ${v.name} 徵求代班 (點擊接手)</button>`;
+                            } else {
+                                tagsHtml += `<span class="vol-tag" style="background:#e9ecef; color:#333; padding:4px 10px; border-radius:15px; margin:2px 5px 2px 0;">✔️ ${v.name} ${slot.role}</span>`;
+                            }
                         }
                     });
                     
-                    // 剩餘空缺轉換為「填班按鈕」
-                    for (let i = 0; i < slot.remain; i++) {
-                        let btnText = act.isPreview ? '👀 預覽中' : `➕ 點我填班 ${slot.role}`;
-                        let btnColor = act.isPreview ? '#ff9800' : '#008CBA';
-                        let disabledAttr = act.isPreview ? 'disabled' : '';
-                        tagsHtml += `<button class="btn-sm" style="background:${btnColor}; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer;" onclick="submitBooking(${act.index}, '${slot.actDetails}', '${act.actType}')" ${disabledAttr}>${btnText}</button>`;
+                    // 館員不需要看到填班按鈕，除非要幫忙填 (目前簡化為只看名單)
+                    if (userRole !== "staff") {
+                        for (let i = 0; i < slot.remain; i++) {
+                            let btnText = act.isPreview ? '👀 預覽中' : `➕ 點我填班 ${slot.role}`;
+                            let btnColor = act.isPreview ? '#ff9800' : '#008CBA';
+                            let disabledAttr = act.isPreview ? 'disabled' : '';
+                            tagsHtml += `<button class="btn-sm" style="background:${btnColor}; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer;" onclick="submitBooking(${act.index}, '${slot.actDetails}', '${act.actType}')" ${disabledAttr}>${btnText}</button>`;
+                        }
+                    } else if (slot.remain > 0) {
+                        // 館員視角顯示剩餘名額
+                        tagsHtml += `<span class="vol-tag" style="background:transparent; border: 1px dashed #ccc; color:#999; padding:4px 10px; border-radius:15px; margin:2px 5px 2px 0;">尚有 ${slot.remain} 個空缺 ${slot.role}</span>`;
                     }
                 });
 
@@ -424,6 +448,30 @@
             });
         });
     }
+// 【新增】館員專屬的志工管理呼叫
+    function staffManageVol(volName, phone, recordRow, actDetails) {
+        const msg = `👤 志工：${volName}\n📞 電話：${phone}\n\n📅 班次：\n${actDetails}\n\n👉 是否要將此志工的排班「強制取消」並釋出名額？`;
+        if (confirm(msg)) {
+            document.getElementById('calendarPanel').style.opacity = '0.5';
+            fetch(GAS_URL, { 
+                method: 'POST', 
+                body: JSON.stringify({ action: "staffCancelShift", lineId: sessionStorage.getItem("volLineId"), recordRow: recordRow }) 
+            })
+            .then(res => res.json()).then(data => {
+                document.getElementById('calendarPanel').style.opacity = '1';
+                if (data.status === "success") { 
+                    alert("✅ " + data.message); 
+                    openCalendar(); 
+                } else { 
+                    alert("⚠️ 失敗：" + data.message); 
+                }
+            }).catch(err => { 
+                document.getElementById('calendarPanel').style.opacity = '1'; 
+                alert("連線逾時。"); 
+            });
+        }
+    }
+    
 </script>
 
 </body>
