@@ -460,12 +460,13 @@
 let currentCancelData = null; // 用來暫存要取消的資料
 
     // 【館員專屬】志工管理 (改為開啟安全彈窗)
+    // 【館員專屬】志工管理 (改為開啟安全彈窗)
     function staffManageVol(volName, phone, lineName, recordRow, actDetails) {
-        // 準備要顯示在彈窗裡面的 HTML 內容 (電話加上 tel: 連結方便手機直撥)
+        // 準備要顯示在彈窗裡面的 HTML 內容 (加入點擊複製 LINE 名稱功能)
         const contentHtml = `
             <b>姓名：</b> ${volName}<br>
             <b>電話：</b> <a href="tel:${phone}" style="color: #008CBA; text-decoration: none; font-weight: bold;">${phone}</a><br>
-            <b>LINE名稱：</b> ${lineName}<br><br>
+            <b>LINE名稱：</b> <span id="copyLineBtn" onclick="copyLineName('${lineName}')" style="color: #008CBA; cursor: pointer; font-weight: bold; background: #e9ecef; padding: 3px 10px; border-radius: 15px; display: inline-block; margin-top: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">@${lineName} 📋(點擊複製)</span><br><br>
             <div style="font-size: 13px; color: #777; background: #f8f9fa; padding: 8px; border-radius: 5px;">
                 📅 <b>班次：</b><br>${actDetails}
             </div>
@@ -475,8 +476,42 @@ let currentCancelData = null; // 用來暫存要取消的資料
         document.getElementById('staffModalContent').innerHTML = contentHtml;
         currentCancelData = { recordRow: recordRow, volName: volName };
         
-        // 顯示彈窗 (使用 flex 達成垂直水平置中)
+        // 顯示彈窗
         document.getElementById('staffModal').style.display = 'flex';
+    }
+
+    // 【新增】一鍵複製 LINE 名稱功能
+    function copyLineName(lineName) {
+        const textToCopy = "@" + lineName; // 自動加上 @ 符號
+        const btn = document.getElementById('copyLineBtn');
+        const originalText = btn.innerHTML;
+
+        // 建立一個臨時的隱藏輸入框來執行複製 (相容性最佳，完美支援手機 LINE LIFF 內建瀏覽器)
+        const textArea = document.createElement("textarea");
+        textArea.value = textToCopy;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        
+        try {
+            document.execCommand('copy');
+            // 複製成功的視覺回饋 (變綠色字)
+            btn.innerHTML = "✅ 已複製！可至群組貼上";
+            btn.style.color = "#155724";
+            btn.style.background = "#d4edda";
+            
+            // 2 秒後恢復原本的按鈕樣貌
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.style.color = "#008CBA";
+                btn.style.background = "#e9ecef";
+            }, 2000);
+        } catch (err) {
+            alert('您的裝置不支援自動複製，請手動輸入');
+        }
+        
+        document.body.removeChild(textArea);
     }
 
     // 關閉館員彈窗
