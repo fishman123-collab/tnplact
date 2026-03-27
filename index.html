@@ -175,7 +175,7 @@
             const actDetails = act.isSubCard ? act.actDetails : `${act.date} ${act.time} ${act.content}`;
             
             let btnDisabled = ''; let btnText = '✅ 點我填班'; let btnColor = '#008CBA';
-            let onclickFn = `submitBooking(${act.index}, '${actDetails}', '${act.actType}')`;
+            let onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
             
             if (act.isSubCard) {
                 btnText = '🙋‍♂️ 協助代班'; btnColor = '#ff5722';
@@ -450,7 +450,7 @@
                             let btnText = act.isPreview ? '👀 預覽中' : `➕ 點我填班 ${slot.role}`;
                             let btnColor = act.isPreview ? '#ff9800' : '#008CBA';
                             let disabledAttr = act.isPreview ? 'disabled' : '';
-                            tagsHtml += `<button class="btn-sm" style="background:${btnColor}; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer;" onclick="submitBooking(${act.index}, '${slot.actDetails}', '${act.actType}')" ${disabledAttr}>${btnText}</button>`;
+                            tagsHtml += `<button class="btn-sm" style="background:${btnColor}; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer;" onclick="submitBooking('${act.index}', '${slot.actDetails}', '${act.actType}')" ${disabledAttr}>${btnText}</button>`;
                         }
                     } else if (slot.remain > 0) {
                         // 館員視角顯示剩餘名額
