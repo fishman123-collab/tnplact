@@ -22,9 +22,33 @@
         .date-header { background: #343a40; color: white; padding: 8px 15px; border-radius: 5px; margin: 20px 0 10px 0; font-weight: bold; }
         .vol-tag { display: inline-block; background: #e9ecef; color: #333; padding: 4px 10px; border-radius: 15px; font-size: 13px; margin: 2px 5px 2px 0; }
         .btn-sm { font-family: '微軟正黑體'; font-size: 13px; }
+        /* 讀取動畫遮罩樣式 */
+        #loadingOverlay {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 99999;
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+        .spinner {
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 5px solid #ffffff;
+            width: 50px; height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
+    <div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div style="color: white; font-size: 16px; font-weight: bold; letter-spacing: 1px;">資料處理中，請稍候...</div>
+</div>
 
 <div class="container">
     <h2 style="text-align: center;">志工排班系統</h2>
@@ -82,6 +106,9 @@
     </div>
 
 <script>
+    // 顯示/隱藏讀取動畫
+    function showLoading() { document.getElementById('loadingOverlay').style.display = 'flex'; }
+    function hideLoading() { document.getElementById('loadingOverlay').style.display = 'none'; }
     // ======== 請替換以下兩個網址/ID ========
     const LIFF_ID = "2008914129-kU6EacB0"; 
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxAxfitZSSedHZCmix-gjdS8Z1kOJvcvT5BQA9JEqmHUZuppfMRuFn7bwQZtVppKVIa/exec"; 
@@ -206,14 +233,12 @@
         const lineId = sessionStorage.getItem("volLineId"); const name = sessionStorage.getItem("volName");
         if (!lineId) { alert("登入資訊遺失，請重新開啟 LINE 介面！"); return; }
         if (confirm(`確定要填班：\n${actDetails} 嗎？`)) {
-            document.getElementById('masterPanel').style.opacity = '0.5';
+            showLoading(); // 【開啟動畫與鎖定螢幕】
             fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "bookShift", lineId: lineId, name: name, actIndex: actIndex, actDetails: actDetails, actType: actType }) })
             .then(res => res.json()).then(data => {
-                document.getElementById('masterPanel').style.opacity = '1';
-                document.getElementById('calendarPanel').style.opacity = '1'; // 若是從月曆呼叫的，也解除鎖定
+                hideLoading(); // 【關閉動畫】
                 if (data.status === "success") { 
                     alert("🎉 " + data.message); 
-                    // 根據目前開啟的面板重新整理資料
                     if(document.getElementById('calendarPanel').style.display === 'block') openCalendar();
                     else fetchActivities(); 
                 } 
@@ -223,22 +248,19 @@
                     else fetchActivities(); 
                 }
             }).catch(err => { 
-                document.getElementById('masterPanel').style.opacity = '1'; 
-                document.getElementById('calendarPanel').style.opacity = '1';
-                alert("連線逾時。"); 
+                hideLoading(); // 【關閉動畫】
+                alert("連線逾時，請確認網路狀態。"); 
             });
         }
     }
 
     function submitTakeSubstitute(recordRow, actDetails) {
         const lineId = sessionStorage.getItem("volLineId"); const name = sessionStorage.getItem("volName");
-        // 【修正】在彈出視窗中加入完整的日期、時間與活動名稱
         if (confirm(`確定要接手這個代班嗎？\n(您的姓名將會取代原志工)\n\n📅 班次資訊：\n${actDetails}`)) {
-            document.getElementById('masterPanel').style.opacity = '0.5';
+            showLoading(); // 【開啟動畫與鎖定螢幕】
             fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "takeSubstitute", lineId: lineId, name: name, recordRow: recordRow }) })
             .then(res => res.json()).then(data => {
-                document.getElementById('masterPanel').style.opacity = '1';
-                document.getElementById('calendarPanel').style.opacity = '1';
+                hideLoading(); // 【關閉動畫】
                 if (data.status === "success") { 
                     alert("🎉 " + data.message); 
                     if(document.getElementById('calendarPanel').style.display === 'block') openCalendar();
@@ -250,9 +272,8 @@
                     else fetchActivities(); 
                 }
             }).catch(err => { 
-                document.getElementById('masterPanel').style.opacity = '1'; 
-                document.getElementById('calendarPanel').style.opacity = '1';
-                alert("連線逾時。"); 
+                hideLoading(); // 【關閉動畫】
+                alert("連線逾時，請確認網路狀態。"); 
             });
         }
     }
@@ -331,33 +352,31 @@
 
     function submitAskSubstitute(recordRow, actDetails, isDirectCancel) {
         const lineId = sessionStorage.getItem("volLineId");
-        
-        // 【動態生成確認彈窗文字】
         let confirmMsg = isDirectCancel 
             ? `確定要取消這個排班嗎？\n\n將直接取消並釋放名額\n\n📅 班次資訊：\n${actDetails}`
             : `確定要取消這個排班嗎？\n\n將轉為「徵求代班狀態」\n\n📅 班次資訊：\n${actDetails}`;
 
         if (confirm(confirmMsg)) {
-            document.getElementById('myPanel').style.opacity = '0.5';
+            showLoading(); // 【開啟動畫】
             fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "askSubstitute", lineId: lineId, recordRow: recordRow }) })
             .then(res => res.json()).then(data => {
-                document.getElementById('myPanel').style.opacity = '1';
+                hideLoading(); // 【關閉動畫】
                 if (data.status === "success") { alert("✅ " + data.message); fetchMySchedule(); } 
                 else { alert("⚠️ 錯誤：\n" + data.message); }
-            }).catch(err => { document.getElementById('myPanel').style.opacity = '1'; alert("連線逾時。"); });
+            }).catch(err => { hideLoading(); alert("連線逾時。"); });
         }
     }
 
     function submitRetractSubstitute(recordRow, actDetails) {
         const lineId = sessionStorage.getItem("volLineId");
         if (confirm(`確定要撤回代班請求嗎？\n(撤回後將恢復您的值勤狀態)\n\n${actDetails}`)) {
-            document.getElementById('myPanel').style.opacity = '0.5';
+            showLoading(); // 【開啟動畫】
             fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "retractSubstitute", lineId: lineId, recordRow: recordRow }) })
             .then(res => res.json()).then(data => {
-                document.getElementById('myPanel').style.opacity = '1';
+                hideLoading(); // 【關閉動畫】
                 if (data.status === "success") { alert("✅ " + data.message); fetchMySchedule(); } 
                 else { alert("⚠️ 錯誤：\n" + data.message); }
-            }).catch(err => { document.getElementById('myPanel').style.opacity = '1'; alert("連線逾時。"); });
+            }).catch(err => { hideLoading(); alert("連線逾時。"); });
         }
     }
 
@@ -530,34 +549,29 @@ let currentCancelData = null; // 用來暫存要取消的資料
     }
 
     // 執行強制取消 (彈窗內的紅色按鈕觸發)
+    // 執行強制取消 (彈窗內的紅色按鈕觸發)
     function executeStaffCancel() {
         if (!currentCancelData) return;
+        const targetRow = currentCancelData.recordRow; 
         
-        const targetRow = currentCancelData.recordRow; // 【修正】先把要刪除的列數存起來
-        
-        // 破壞性動作，進行最後一次安全確認
         if (confirm(`⚠️ 最終確認\n\n確定要將 ${currentCancelData.volName} 的排班強制取消並釋出名額嗎？`)) {
-            closeStaffModal(); // 先關閉彈窗 (現在清空暫存也沒關係了，因為已經存入 targetRow)
-            document.getElementById('calendarPanel').style.opacity = '0.5'; // 畫面變淡表示載入中
+            closeStaffModal(); 
+            showLoading(); // 【開啟動畫與鎖定螢幕】
             
             fetch(GAS_URL, { 
                 method: 'POST', 
-                body: JSON.stringify({ 
-                    action: "staffCancelShift", 
-                    lineId: sessionStorage.getItem("volLineId"), 
-                    recordRow: targetRow // 【修正】改用剛剛安全存起來的變數
-                }) 
+                body: JSON.stringify({ action: "staffCancelShift", lineId: sessionStorage.getItem("volLineId"), recordRow: targetRow }) 
             })
             .then(res => res.json()).then(data => {
-                document.getElementById('calendarPanel').style.opacity = '1';
+                hideLoading(); // 【關閉動畫】
                 if (data.status === "success") { 
                     alert("✅ " + data.message); 
-                    openCalendar(); // 重新整理月曆
+                    openCalendar(); 
                 } else { 
                     alert("⚠️ 失敗：" + data.message); 
                 }
             }).catch(err => { 
-                document.getElementById('calendarPanel').style.opacity = '1'; 
+                hideLoading(); // 【關閉動畫】
                 alert("連線逾時，請確認網路狀態。"); 
             });
         }
