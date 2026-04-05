@@ -122,6 +122,8 @@
             <option value="all">📂 顯示全部類別</option>
             <option value="一般">📅 一般活動</option>
             <option value="導覽">🚩 導覽活動</option>
+            <option value="蛙寶">🐸 蛙寶故事團</option>
+            <option value="五感">✋ 五感體驗</option>
             <option value="創客課程">👨‍🏫 創客課程</option>
             <option value="培訓">📖 培訓活動</option>
         </select>
@@ -138,6 +140,8 @@
             <option value="all">📂 顯示全部類別</option>
             <option value="一般">📅 一般活動</option>
             <option value="導覽">🚩 導覽活動</option>
+            <option value="蛙寶">🐸 蛙寶故事團</option>
+            <option value="五感">✋ 五感體驗</option>
             <option value="創客課程">👨‍🏫 創客課程</option>
             <option value="培訓">📖 培訓活動</option>
         </select>
@@ -202,6 +206,8 @@
         if (userData.role === "staff") {
             // 館員：全部開啟
             document.getElementById('sec-activity').style.display = "block";
+            document.getElementById('sec-story').style.display = "block";
+            document.getElementById('sec-fivesenses').style.display = "block";
             document.getElementById('sec-maker').style.display = "block";
             document.getElementById('btn-calendar-view').style.display = "block";
             if (userData.canEditTime) document.getElementById('btn-staff-manage').style.display = "block";
@@ -209,8 +215,10 @@
             // 志工：根據組別與兼任判斷顯示哪些區塊
             const groupsStr = (userData.group + "," + (userData.concurrent || "")).replace(/\s/g, '');
             
-            // 只要字串內包含關鍵字，就開放對應模組
+            // 只要字串內包含關鍵字，就開放對應模組 (支援多重兼任)
             if (groupsStr.includes('活動組')) document.getElementById('sec-activity').style.display = "block";
+            if (groupsStr.includes('故事') || groupsStr.includes('蛙寶')) document.getElementById('sec-story').style.display = "block";
+            if (groupsStr.includes('五感')) document.getElementById('sec-fivesenses').style.display = "block";
             if (groupsStr.includes('創客')) document.getElementById('sec-maker').style.display = "block";
             
             document.getElementById('btn-calendar-view').style.display = "block";
