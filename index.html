@@ -57,11 +57,23 @@
     <div id="buttonArea">
         
         <div class="menu-section" id="sec-activity">
-            <button class="menu-title" onclick="toggleMenu('menu-activity')"><span>📂 活動組 (一般/導覽/故事)</span> <span>▾</span></button>
+            <button class="menu-title" onclick="toggleMenu('menu-activity')"><span>📂 活動組 (一般/導覽)</span> <span>▾</span></button>
             <div class="menu-content" id="menu-activity">
                 <button class="btn" style="display: block;" onclick="openBooking('一般')">📅 一般活動排班</button>
                 <button class="btn" style="background-color: #008CBA; display: block;" onclick="openBooking('導覽')">🚩 導覽活動排班</button>
+            </div>
+        </div>
+
+        <div class="menu-section" id="sec-story">
+            <button class="menu-title" onclick="toggleMenu('menu-story')"><span>🐸 故事組</span> <span>▾</span></button>
+            <div class="menu-content" id="menu-story">
                 <button class="btn" style="background-color: #ff9800; display: block;" onclick="openBooking('蛙寶')">🐸 蛙寶故事團排班</button>
+            </div>
+        </div>
+
+        <div class="menu-section" id="sec-fivesenses">
+            <button class="menu-title" onclick="toggleMenu('menu-fivesenses')"><span>✋ 五感體驗組</span> <span>▾</span></button>
+            <div class="menu-content" id="menu-fivesenses">
                 <button class="btn" style="background-color: #e83e8c; display: block;" onclick="openBooking('五感')">✋ 五感體驗區排班</button>
             </div>
         </div>
