@@ -96,14 +96,28 @@
 
     <div id="staffPanel" class="panel">
         <h3>⚙️ 排班時間設定</h3>
-        <label>本次開放排班月份 (例如 4月)：</label>
+        <label>本次開放排班月份 (共用)：</label>
         <input type="month" id="target_month">
-        <label>班表預覽開放時間 (僅供查看，無法填班)：</label>
+        <label>全站班表預覽開放時間：</label>
         <input type="datetime-local" id="preview_time">
-        <label>第一階段開始時間 (限1班)：</label>
-        <input type="datetime-local" id="phase1_time">
-        <label>第二階段開始時間 (無限制)：</label>
-        <input type="datetime-local" id="phase2_time">
+        
+        <hr style="margin: 15px 0; border-top: 1px dashed #ccc;">
+        <h4 style="margin:0 0 5px 0; color: #8e44ad;">📅 一般活動/導覽 設定</h4>
+        <label>第一階段開始 (限1班)：</label><input type="datetime-local" id="phase1_time">
+        <label>第二階段開始 (無限制)：</label><input type="datetime-local" id="phase2_time">
+        
+        <hr style="margin: 15px 0; border-top: 1px dashed #ccc;">
+        <h4 style="margin:0 0 5px 0; color: #28a745;">👨‍🏫 創客課程 設定</h4>
+        <label>第一階段開始 (限1班/助教限專長)：</label><input type="datetime-local" id="maker_p1_time">
+        <label>第二階段開始 (無限制/助教不限專長)：</label><input type="datetime-local" id="maker_p2_time">
+
+        <hr style="margin: 15px 0; border-top: 1px dashed #ccc;">
+        <h4 style="margin:0 0 5px 0; color: #17a2b8;">📖 培訓活動 設定</h4>
+        <label>第一階段 (種子+專長+0受訓)：</label><input type="datetime-local" id="train_p1_time">
+        <label>第二階段 (值班/種子+專長+0受訓)：</label><input type="datetime-local" id="train_p2_time">
+        <label>第三階段 (不分專長+0受訓)：</label><input type="datetime-local" id="train_p3_time">
+        <label>第四階段 (全面開放)：</label><input type="datetime-local" id="train_p4_time">
+
         <button class="btn btn-staff" onclick="saveParams()" style="display: block; margin-top: 15px;">💾 儲存設定</button>
         <p id="saveMsg" style="color: red; font-size: 14px;"></p>
     </div>
@@ -294,22 +308,22 @@
             let btnDisabled = ''; let btnText = '✅ 點我填班'; let btnColor = '#008CBA';
             let onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
             
-            // 【新增】創客課程的專長自動防呆審核 (支援複數專長)
+            // 【修正】創客課程的專長自動防呆審核 (嚴格要求 AND)
             if (act.actType === '創客課程' && !act.isSubCard) {
                 const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
                 const myInstSkills = sessionStorage.getItem("volInstructorSkills") || "";
                 const reqSkill = act.reqSkill || "";
                 let hasSkill = false;
 
-                // 處理複數專長 (利用正則切割逗號、頓號等，過濾空白)
+                // 處理複數專長
                 const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
 
                 if (act.role === '講師') {
-                    // 講師：若有要求專長，則志工的體驗講師專長必須「至少包含一項」
-                    hasSkill = reqSkillsArr.length === 0 ? true : reqSkillsArr.some(rs => myInstSkills.includes(rs));
+                    // 講師：若有要求專長，則志工的體驗講師專長必須【全部具備 (every)】
+                    hasSkill = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myInstSkills.includes(rs));
                 } else if (act.role === '助教') {
-                    // 助教：第一階段審核專長，第二階段全開不限專長
-                    hasSkill = act.isPhase1 ? (reqSkillsArr.length === 0 ? true : reqSkillsArr.some(rs => myDutySkills.includes(rs))) : true;
+                    // 助教：第一階段必須【全部具備 (every)】，第二階段全開不限專長
+                    hasSkill = act.isPhase1 ? (reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myDutySkills.includes(rs))) : true;
                 }
 
                 if (!hasSkill && !act.isPreview && !isFull) {
@@ -406,20 +420,34 @@
                 document.getElementById('preview_time').value = data.data.previewTime || "";
                 document.getElementById('phase1_time').value = data.data.phase1 || "";
                 document.getElementById('phase2_time').value = data.data.phase2 || "";
+                document.getElementById('maker_p1_time').value = data.data.makerP1 || "";
+                document.getElementById('maker_p2_time').value = data.data.makerP2 || "";
+                document.getElementById('train_p1_time').value = data.data.trainP1 || "";
+                document.getElementById('train_p2_time').value = data.data.trainP2 || "";
+                document.getElementById('train_p3_time').value = data.data.trainP3 || "";
+                document.getElementById('train_p4_time').value = data.data.trainP4 || "";
                 msg.innerText = ""; 
             } else { msg.innerText = "讀取設定失敗，可能尚無資料。"; }
         }).catch(err => { msg.innerText = "讀取失敗，請檢查網路連線。"; });
     }
 
     function saveParams() {
-        const tMonth = document.getElementById('target_month').value;
-        const preview = document.getElementById('preview_time').value; 
-        const p1 = document.getElementById('phase1_time').value;
-        const p2 = document.getElementById('phase2_time').value;
+        const payload = {
+            action: "saveParams",
+            targetMonth: document.getElementById('target_month').value,
+            previewTime: document.getElementById('preview_time').value,
+            phase1: document.getElementById('phase1_time').value,
+            phase2: document.getElementById('phase2_time').value,
+            makerP1: document.getElementById('maker_p1_time').value,
+            makerP2: document.getElementById('maker_p2_time').value,
+            trainP1: document.getElementById('train_p1_time').value,
+            trainP2: document.getElementById('train_p2_time').value,
+            trainP3: document.getElementById('train_p3_time').value,
+            trainP4: document.getElementById('train_p4_time').value
+        };
         const msg = document.getElementById('saveMsg');
-        if (!tMonth || !p1 || !p2 || !preview) { msg.innerText = "請完整填寫所有欄位的時間！"; return; }
         msg.innerText = "儲存中...";
-        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "saveParams", targetMonth: tMonth, previewTime: preview, phase1: p1, phase2: p2 }) })
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
         .then(res => res.json()).then(data => {
             if (data.status === "success") { msg.style.color = "green"; msg.innerText = "✅ 儲存成功！"; }
         }).catch(err => { msg.innerText = "儲存失敗，請檢查網路連線。"; });
