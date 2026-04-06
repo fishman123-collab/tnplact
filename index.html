@@ -362,6 +362,43 @@
                     btnColor = '#ccc';
                 }
             }
+
+            // 【新增】培訓活動報名的 4 階段超強防呆邏輯
+            if (act.actType === '培訓' && !act.isSubCard) {
+                const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
+                const mySeedSkills = sessionStorage.getItem("volSeedSkills") || "";
+                const myTrainedCount = 0; // 預設受訓次數為0 (若未來有資料庫欄位可再接上)
+                const reqSkill = act.reqSkill || "";
+                const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
+                
+                // 檢查是否符合要求專長
+                let hasSkillDuty = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myDutySkills.includes(rs));
+                let hasSkillSeed = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => mySeedSkills.includes(rs));
+
+                let isAllowed = false;
+                let blockReason = "";
+
+                if (act.phase === 4) {
+                    isAllowed = true;
+                } else if (act.phase === 3) {
+                    if (myTrainedCount === 0) isAllowed = true;
+                    else blockReason = "❌ 限未受訓者";
+                } else if (act.phase === 2) {
+                    if (myTrainedCount === 0 && (hasSkillSeed || hasSkillDuty)) isAllowed = true;
+                    else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 專長不符 (${reqSkill})`;
+                } else if (act.phase === 1) {
+                    if (myTrainedCount === 0 && hasSkillSeed) isAllowed = true;
+                    else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 限對應專長之種子教師`;
+                } else {
+                    blockReason = `👀 尚未開放 (${act.p1TimeStr})`;
+                }
+
+                if (!isAllowed && !act.isPreview && !isFull) {
+                    btnDisabled = 'disabled';
+                    btnText = blockReason;
+                    btnColor = '#ccc';
+                }
+            }
             
             // 狀態覆蓋 (代班/預覽/額滿 優先級更高)
             if (act.isSubCard) {
