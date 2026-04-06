@@ -95,30 +95,60 @@
     </div>
 
     <div id="staffPanel" class="panel">
-        <h3>⚙️ 排班時間設定</h3>
-        <label>本次開放排班月份 (共用)：</label>
-        <input type="month" id="target_month">
-        <label>全站班表預覽開放時間：</label>
-        <input type="datetime-local" id="preview_time">
-        
-        <hr style="margin: 15px 0; border-top: 1px dashed #ccc;">
-        <h4 style="margin:0 0 5px 0; color: #8e44ad;">📅 一般活動/導覽 設定</h4>
-        <label>第一階段開始 (限1班)：</label><input type="datetime-local" id="phase1_time">
-        <label>第二階段開始 (無限制)：</label><input type="datetime-local" id="phase2_time">
-        
-        <hr style="margin: 15px 0; border-top: 1px dashed #ccc;">
-        <h4 style="margin:0 0 5px 0; color: #28a745;">👨‍🏫 創客課程 設定</h4>
-        <label>第一階段開始 (限1班/助教限專長)：</label><input type="datetime-local" id="maker_p1_time">
-        <label>第二階段開始 (無限制/助教不限專長)：</label><input type="datetime-local" id="maker_p2_time">
+        <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="document.getElementById('staffPanel').style.display='none'">🔙 關閉設定</button>
+        <h3 style="margin-top:0;">⚙️ 各組排班時間獨立設定</h3>
 
-        <hr style="margin: 15px 0; border-top: 1px dashed #ccc;">
-        <h4 style="margin:0 0 5px 0; color: #17a2b8;">📖 培訓活動 設定</h4>
-        <label>第一階段 (種子+專長+0受訓)：</label><input type="datetime-local" id="train_p1_time">
-        <label>第二階段 (值班/種子+專長+0受訓)：</label><input type="datetime-local" id="train_p2_time">
-        <label>第三階段 (不分專長+0受訓)：</label><input type="datetime-local" id="train_p3_time">
-        <label>第四階段 (全面開放)：</label><input type="datetime-local" id="train_p4_time">
+        <div class="menu-section" style="display:block;">
+            <button class="menu-title" onclick="toggleMenu('staff-gen')"><span>📅 一般活動 設定</span> <span>▾</span></button>
+            <div class="menu-content" id="staff-gen">
+                <label>開放月份：</label><input type="month" id="gen_m">
+                <label>預覽時間：</label><input type="datetime-local" id="gen_prev">
+                <label>第一階段 (限1班)：</label><input type="datetime-local" id="gen_p1">
+                <label>第二階段 (無限制)：</label><input type="datetime-local" id="gen_p2">
+            </div>
+        </div>
 
-        <button class="btn btn-staff" onclick="saveParams()" style="display: block; margin-top: 15px;">💾 儲存設定</button>
+        <div class="menu-section" style="display:block;">
+            <button class="menu-title" onclick="toggleMenu('staff-frog')"><span>🐸 蛙寶故事團 設定</span> <span>▾</span></button>
+            <div class="menu-content" id="staff-frog" style="display:none;">
+                <label>開放月份：</label><input type="month" id="frog_m">
+                <label>預覽時間：</label><input type="datetime-local" id="frog_prev">
+                <label>第一階段 (限1班)：</label><input type="datetime-local" id="frog_p1">
+                <label>第二階段 (無限制)：</label><input type="datetime-local" id="frog_p2">
+            </div>
+        </div>
+
+        <div class="menu-section" style="display:block;">
+            <button class="menu-title" onclick="toggleMenu('staff-sense')"><span>✋ 五感體驗區 設定</span> <span>▾</span></button>
+            <div class="menu-content" id="staff-sense" style="display:none;">
+                <label>開放月份：</label><input type="month" id="sense_m">
+                <label>預覽時間：</label><input type="datetime-local" id="sense_prev">
+                <label>第一階段 (限1班)：</label><input type="datetime-local" id="sense_p1">
+                <label>第二階段 (無限制)：</label><input type="datetime-local" id="sense_p2">
+            </div>
+        </div>
+
+        <div class="menu-section" style="display:block;">
+            <button class="menu-title" onclick="toggleMenu('staff-maker')"><span>🛠️ 創客空間 設定</span> <span>▾</span></button>
+            <div class="menu-content" id="staff-maker" style="display:none;">
+                <h4 style="color:#28a745; margin-top:0;">👨‍🏫 創客課程</h4>
+                <label>開放月份：</label><input type="month" id="maker_m">
+                <label>預覽時間：</label><input type="datetime-local" id="maker_prev">
+                <label>第一階段 (限1班/助教限專長)：</label><input type="datetime-local" id="maker_p1">
+                <label>第二階段 (無限制/助教不限專長)：</label><input type="datetime-local" id="maker_p2">
+
+                <hr style="border-top:1px dashed #ccc; margin:15px 0;">
+                <h4 style="color:#17a2b8; margin-top:0;">📖 培訓活動</h4>
+                <label>開放月份：</label><input type="month" id="train_m">
+                <label>預覽時間：</label><input type="datetime-local" id="train_prev">
+                <label>第一階段 (種子+專長+0受訓)：</label><input type="datetime-local" id="train_p1">
+                <label>第二階段 (值班/種子+專長+0受訓)：</label><input type="datetime-local" id="train_p2">
+                <label>第三階段 (不分專長+0受訓)：</label><input type="datetime-local" id="train_p3">
+                <label>第四階段 (全面開放)：</label><input type="datetime-local" id="train_p4">
+            </div>
+        </div>
+
+        <button class="btn btn-staff" onclick="saveParams()" style="display: block; margin-top: 15px;">💾 儲存所有設定</button>
         <p id="saveMsg" style="color: red; font-size: 14px;"></p>
     </div>
 
@@ -413,44 +443,39 @@
         const msg = document.getElementById('saveMsg');
         msg.style.color = "#666"; msg.innerText = "正在讀取目前設定...";
         fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getParams" }) })
-        .then(res => res.json())
-        .then(data => {
+        .then(res => res.json()).then(data => {
             if (data.status === "success" && data.data) {
-                document.getElementById('target_month').value = data.data.targetMonth || "";
-                document.getElementById('preview_time').value = data.data.previewTime || "";
-                document.getElementById('phase1_time').value = data.data.phase1 || "";
-                document.getElementById('phase2_time').value = data.data.phase2 || "";
-                document.getElementById('maker_p1_time').value = data.data.makerP1 || "";
-                document.getElementById('maker_p2_time').value = data.data.makerP2 || "";
-                document.getElementById('train_p1_time').value = data.data.trainP1 || "";
-                document.getElementById('train_p2_time').value = data.data.trainP2 || "";
-                document.getElementById('train_p3_time').value = data.data.trainP3 || "";
-                document.getElementById('train_p4_time').value = data.data.trainP4 || "";
+                const d = data.data;
+                ['gen','frog','sense','maker','train'].forEach(k => {
+                    if(document.getElementById(k+'_m')) document.getElementById(k+'_m').value = d[k+'_m'] || '';
+                    if(document.getElementById(k+'_prev')) document.getElementById(k+'_prev').value = d[k+'_prev'] || '';
+                    if(document.getElementById(k+'_p1')) document.getElementById(k+'_p1').value = d[k+'_p1'] || '';
+                    if(document.getElementById(k+'_p2')) document.getElementById(k+'_p2').value = d[k+'_p2'] || '';
+                });
+                document.getElementById('train_p3').value = d['train_p3'] || '';
+                document.getElementById('train_p4').value = d['train_p4'] || '';
                 msg.innerText = ""; 
-            } else { msg.innerText = "讀取設定失敗，可能尚無資料。"; }
-        }).catch(err => { msg.innerText = "讀取失敗，請檢查網路連線。"; });
+            } else { msg.innerText = "讀取設定失敗。"; }
+        }).catch(err => { msg.innerText = "連線失敗。"; });
     }
 
     function saveParams() {
-        const payload = {
-            action: "saveParams",
-            targetMonth: document.getElementById('target_month').value,
-            previewTime: document.getElementById('preview_time').value,
-            phase1: document.getElementById('phase1_time').value,
-            phase2: document.getElementById('phase2_time').value,
-            makerP1: document.getElementById('maker_p1_time').value,
-            makerP2: document.getElementById('maker_p2_time').value,
-            trainP1: document.getElementById('train_p1_time').value,
-            trainP2: document.getElementById('train_p2_time').value,
-            trainP3: document.getElementById('train_p3_time').value,
-            trainP4: document.getElementById('train_p4_time').value
-        };
+        const payload = { action: "saveParams" };
+        ['gen','frog','sense','maker','train'].forEach(k => {
+            if(document.getElementById(k+'_m')) payload[k+'_m'] = document.getElementById(k+'_m').value;
+            if(document.getElementById(k+'_prev')) payload[k+'_prev'] = document.getElementById(k+'_prev').value;
+            if(document.getElementById(k+'_p1')) payload[k+'_p1'] = document.getElementById(k+'_p1').value;
+            if(document.getElementById(k+'_p2')) payload[k+'_p2'] = document.getElementById(k+'_p2').value;
+        });
+        payload['train_p3'] = document.getElementById('train_p3').value;
+        payload['train_p4'] = document.getElementById('train_p4').value;
+
         const msg = document.getElementById('saveMsg');
         msg.innerText = "儲存中...";
         fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
         .then(res => res.json()).then(data => {
             if (data.status === "success") { msg.style.color = "green"; msg.innerText = "✅ 儲存成功！"; }
-        }).catch(err => { msg.innerText = "儲存失敗，請檢查網路連線。"; });
+        }).catch(err => { msg.innerText = "儲存失敗。"; });
     }
 
     document.getElementById('btn-my-schedule').addEventListener('click', function() {
