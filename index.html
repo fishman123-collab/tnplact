@@ -294,19 +294,22 @@
             let btnDisabled = ''; let btnText = '✅ 點我填班'; let btnColor = '#008CBA';
             let onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
             
-            // 【新增】創客課程的專長自動防呆審核
+            // 【新增】創客課程的專長自動防呆審核 (支援複數專長)
             if (act.actType === '創客課程' && !act.isSubCard) {
                 const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
                 const myInstSkills = sessionStorage.getItem("volInstructorSkills") || "";
                 const reqSkill = act.reqSkill || "";
                 let hasSkill = false;
 
+                // 處理複數專長 (利用正則切割逗號、頓號等，過濾空白)
+                const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
+
                 if (act.role === '講師') {
-                    // 講師永遠嚴格審核專長
-                    hasSkill = myInstSkills.includes(reqSkill);
+                    // 講師：若有要求專長，則志工的體驗講師專長必須「至少包含一項」
+                    hasSkill = reqSkillsArr.length === 0 ? true : reqSkillsArr.some(rs => myInstSkills.includes(rs));
                 } else if (act.role === '助教') {
                     // 助教：第一階段審核專長，第二階段全開不限專長
-                    hasSkill = act.isPhase1 ? myDutySkills.includes(reqSkill) : true;
+                    hasSkill = act.isPhase1 ? (reqSkillsArr.length === 0 ? true : reqSkillsArr.some(rs => myDutySkills.includes(rs))) : true;
                 }
 
                 if (!hasSkill && !act.isPreview && !isFull) {
@@ -452,13 +455,12 @@
         const listDiv = document.getElementById('myActivityList');
         listDiv.innerHTML = ""; 
         
-        // 執行陣列過濾
+        // 執行陣列過濾 (利用精準標籤判斷)
         const filteredShifts = globalMyShifts.filter(shift => {
             if (filterVal === 'all') return true;
-            // 這裡簡單以名稱判斷：未來如果後端有傳回 actType 會更精準，目前先用名稱包含關鍵字判斷
-            if (filterVal === '一般') return !shift.actDetails.includes('[主講]') && !shift.actDetails.includes('[小幫手]') && !shift.actDetails.includes('創客');
-            if (filterVal === '導覽') return shift.actDetails.includes('導覽');
-            if (filterVal === '創客課程') return shift.actDetails.includes('創客');
+            if (filterVal === '一般') return !shift.actDetails.includes('[主講]') && !shift.actDetails.includes('[小幫手]') && !shift.actDetails.includes('[講師]') && !shift.actDetails.includes('[助教]') && !shift.actDetails.includes('培訓');
+            if (filterVal === '導覽') return shift.actDetails.includes('[主講]') || shift.actDetails.includes('[小幫手]');
+            if (filterVal === '創客課程') return shift.actDetails.includes('[講師]') || shift.actDetails.includes('[助教]');
             if (filterVal === '培訓') return shift.actDetails.includes('培訓');
             return true;
         });
@@ -555,11 +557,10 @@
             // 過濾該日期下的活動
             const filteredActs = globalCalendarData[date].filter(act => {
                 if (filterVal === 'all') return true;
-                // 針對未來的分類先做基本名稱關鍵字過濾
                 if (filterVal === '導覽') return act.actType === '導覽';
-                if (filterVal === '一般') return act.actType !== '導覽' && !act.content.includes('創客') && !act.content.includes('培訓');
-                if (filterVal === '創客課程') return act.content.includes('創客');
-                if (filterVal === '培訓') return act.content.includes('培訓');
+                if (filterVal === '一般') return act.actType === '一般';
+                if (filterVal === '創客課程') return act.actType === '創客課程';
+                if (filterVal === '培訓') return act.actType === '培訓';
                 return true;
             });
 
