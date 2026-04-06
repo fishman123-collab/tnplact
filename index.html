@@ -294,6 +294,29 @@
             let btnDisabled = ''; let btnText = '✅ 點我填班'; let btnColor = '#008CBA';
             let onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
             
+            // 【新增】創客課程的專長自動防呆審核
+            if (act.actType === '創客課程' && !act.isSubCard) {
+                const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
+                const myInstSkills = sessionStorage.getItem("volInstructorSkills") || "";
+                const reqSkill = act.reqSkill || "";
+                let hasSkill = false;
+
+                if (act.role === '講師') {
+                    // 講師永遠嚴格審核專長
+                    hasSkill = myInstSkills.includes(reqSkill);
+                } else if (act.role === '助教') {
+                    // 助教：第一階段審核專長，第二階段全開不限專長
+                    hasSkill = act.isPhase1 ? myDutySkills.includes(reqSkill) : true;
+                }
+
+                if (!hasSkill && !act.isPreview && !isFull) {
+                    btnDisabled = 'disabled';
+                    btnText = `❌ 專長不符 (${reqSkill})`;
+                    btnColor = '#ccc';
+                }
+            }
+            
+            // 狀態覆蓋 (代班/預覽/額滿 優先級更高)
             if (act.isSubCard) {
                 btnText = '🙋‍♂️ 協助代班'; btnColor = '#ff5722';
                 onclickFn = `submitTakeSubstitute(${act.recordRow}, '${actDetails}')`; 
@@ -307,6 +330,7 @@
             card.className = isFull ? 'activity-card full' : 'activity-card';
             if (act.isPreview) card.style.borderLeftColor = '#ff9800';
             if (act.isSubCard) card.style.borderLeftColor = '#ff5722';
+            if (act.actType === '創客課程') { card.style.borderLeftColor = '#28a745'; card.style.backgroundColor = '#f4fbf5'; }
             
             card.innerHTML = `
                 <h4 style="margin:0 0 10px 0;">${act.content}</h4>
