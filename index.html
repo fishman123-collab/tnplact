@@ -235,9 +235,10 @@
             
             sessionStorage.setItem("volGroup", groupsStr);
             sessionStorage.setItem("volName", userData.name);
-            // 【新增】記錄志工的創客專長與培訓狀態，供後續模組防呆使用
-            sessionStorage.setItem("volSkills", userData.skills || "");
-            sessionStorage.setItem("volTrained", userData.trained || "0");
+            // 更新：存儲三種創客專長
+            sessionStorage.setItem("volDutySkills", userData.dutySkills || "");
+            sessionStorage.setItem("volSeedSkills", userData.seedSkills || "");
+            sessionStorage.setItem("volInstructorSkills", userData.instructorSkills || "");
         }
 
         // 將產生好的選項，寫入兩個下拉式選單中
