@@ -283,6 +283,8 @@
             sessionStorage.setItem("volDutySkills", userData.dutySkills || "");
             sessionStorage.setItem("volSeedSkills", userData.seedSkills || "");
             sessionStorage.setItem("volInstructorSkills", userData.instructorSkills || "");
+            // 【新增】儲存今年受訓次數
+            sessionStorage.setItem("volTrainedCount", userData.trainedCount || "0");
         }
 
         // 將產生好的選項，寫入兩個下拉式選單中
@@ -367,7 +369,8 @@
             if (act.actType === '培訓' && !act.isSubCard) {
                 const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
                 const mySeedSkills = sessionStorage.getItem("volSeedSkills") || "";
-                const myTrainedCount = 0; // 預設受訓次數為0 (若未來有資料庫欄位可再接上)
+                // 【修改】將寫死的 0 換成真實的受訓次數
+                const myTrainedCount = parseInt(sessionStorage.getItem("volTrainedCount") || "0", 10);
                 const reqSkill = act.reqSkill || "";
                 const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
                 
