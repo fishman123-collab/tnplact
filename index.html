@@ -361,7 +361,15 @@
         document.getElementById('tab-myclaims').style.backgroundColor = (tabName === 'myclaims') ? '#d35400' : '#6c757d';
         document.getElementById('tab-allclaims').style.backgroundColor = (tabName === 'allclaims') ? '#d35400' : '#6c757d';
         
-        document.getElementById('historyToggleArea').style.display = (tabName === 'myclaims') ? 'block' : 'none';
+        // 【修改】當選擇「我的認領」或「總班表」時，都顯示未來/歷史切換開關，並預設切換回「未來」
+        const historyArea = document.getElementById('historyToggleArea');
+        if (tabName === 'myclaims' || tabName === 'allclaims') {
+            historyArea.style.display = 'block';
+            document.querySelector('input[name="historyToggle"][value="future"]').checked = true; // 預設顯示未來
+        } else {
+            historyArea.style.display = 'none';
+        }
+        
         renderMatchCards();
     }
 
@@ -374,16 +382,24 @@
         else if (currentMatchTab === 'myclaims') dataList = currentMatchData.myClaims;
         else dataList = currentMatchData.allClaims;
 
-        // 如果是「我的認領」，則進行未來/歷史篩選
-        if (currentMatchTab === 'myclaims') {
+        // 【修改】如果是「我的認領」或「總班表」，進行未來/歷史篩選
+        if (currentMatchTab === 'myclaims' || currentMatchTab === 'allclaims') {
             const showFuture = document.querySelector('input[name="historyToggle"]:checked').value === 'future';
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
             dataList = dataList.filter(item => {
-                let itemDate = new Date(item.approvedDate);
+                let itemDate = new Date(item.approvedDate || item.date); // 優先用核准時間判斷
                 if (isNaN(itemDate.getTime())) return showFuture; // 無法解析預設放未來
                 return showFuture ? (itemDate >= today) : (itemDate < today);
+            });
+            
+            // 將過濾後的資料，依據日期排序 (未來的由近到遠，歷史的由近到遠)
+            dataList.sort((a, b) => {
+                let da = new Date(a.approvedDate || a.date).getTime();
+                let db = new Date(b.approvedDate || b.date).getTime();
+                if (isNaN(da)) da = 9999999999999; if (isNaN(db)) db = 9999999999999;
+                return showFuture ? (da - db) : (db - da); // 歷史紀錄反向排序
             });
         }
 
@@ -412,7 +428,7 @@
                     }
                 });
             } else {
-                // 已認領區：顯示確定的時段與志工
+                // 已認領/總班表區：顯示確定的時段與志工
                 assignedHtml = `
                 <div style="border: 1px solid #c3e6cb; border-radius: 8px; padding: 12px; background: #d4edda; color: #155724; display: flex; flex-direction: column; gap: 5px; margin-top: 15px;">
                     <div style="display:flex; justify-content: space-between;">
@@ -424,6 +440,13 @@
                         <span style="font-weight: bold; font-size: 14px;">${item.assignedVol}</span>
                     </div>
                 </div>`;
+            }
+
+            // 【修改】決定是否要顯示「最晚回覆」欄位
+            // 若為「待認領」則顯示紅色警告，若是「我的認領」或「總班表」則直接隱藏！
+            let deadlineHtml = '';
+            if (currentMatchTab === 'pending' && item.deadline) {
+                deadlineHtml = `⏳ <b style="color: #dc3545;">最晚回覆：${item.deadline}</b>`;
             }
 
             const card = document.createElement('div');
@@ -443,8 +466,7 @@
                     👥 <b>讀者：</b>${item.age} 歲 <span style="margin-left: 10px;"><b>陪同：</b>${item.companions || '無'}</span><br>
                     🪑 <b>作品：</b>${item.projectDesc || '未填寫'}<br>
                     📦 <b>耗材：</b>${item.materials || '無'}<br>
-                    ⏳ <b style="color: #dc3545;">最晚回覆：${item.deadline || '未定'}</b>
-                </div>
+                    ${deadlineHtml} </div>
                 ${slotsHtml}
                 ${assignedHtml}
             `;
