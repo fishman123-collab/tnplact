@@ -154,7 +154,17 @@
 
     <div id="masterPanel" class="panel" style="background: transparent; padding: 0;">
         <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackToMain()">🔙 返回主選單</button>
-        <h3>📅 可填班班表</h3>
+        
+        <h3 id="panelTitle" style="text-align: center; color: #333; margin-bottom: 20px;">📅 可填班班表</h3>
+        
+        <div id="senseAlertBanner" style="display: none; background: #fff3cd; border-left: 5px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+            <h4 style="margin: 0 0 8px 0; color: #856404; display: flex; align-items: center; gap: 6px;">⚠️ 五感探索區 值班重要提醒</h4>
+            <ul style="margin: 0; padding-left: 20px; color: #533f03; font-size: 14.5px; line-height: 1.6;">
+                <li>入區請務必<b>「穿著襪子」</b>，以維護環境衛生。</li>
+                <li>為感謝您的辛勞，<b>星期六、日</b>值班之時數，將以 <b>1.5 倍</b> 計算！</li>
+            </ul>
+        </div>
+
         <div id="activityList">讀取清單中...</div>
     </div>
 
@@ -330,7 +340,13 @@
         currentBookingType = type;
         document.getElementById('buttonArea').style.display = 'none';
         document.getElementById('masterPanel').style.display = 'block';
-        document.querySelector('#masterPanel h3').innerText = `📅 可填班班表 (${type})`;
+        
+        // 讓上方標題根據點選的按鈕變化
+        document.getElementById('panelTitle').innerText = `📋 ${type}排班系統`;
+        
+        // 如果是五感，就把警告橫幅打開，否則隱藏
+        document.getElementById('senseAlertBanner').style.display = (type === '五感') ? 'block' : 'none';
+        
         fetchActivities();
     }
 
