@@ -154,7 +154,6 @@
 
     <div id="masterPanel" class="panel" style="background: transparent; padding: 0;">
         <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackToMain()">🔙 返回主選單</button>
-        
         <h3 id="panelTitle" style="text-align: center; color: #333; margin-bottom: 20px;">📅 可填班班表</h3>
         
         <div id="senseAlertBanner" style="display: none; background: #fff3cd; border-left: 5px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
@@ -340,12 +339,13 @@
         currentBookingType = type;
         document.getElementById('buttonArea').style.display = 'none';
         document.getElementById('masterPanel').style.display = 'block';
-        
-        // 讓上方標題根據點選的按鈕變化
         document.getElementById('panelTitle').innerText = `📋 ${type}排班系統`;
         
-        // 如果是五感，就把警告橫幅打開，否則隱藏
-        document.getElementById('senseAlertBanner').style.display = (type === '五感') ? 'block' : 'none';
+        // 精準控制：如果是五感，就把警告橫幅打開
+        const banner = document.getElementById('senseAlertBanner');
+        if (banner) {
+            banner.style.display = (type === '五感') ? 'block' : 'none';
+        }
         
         fetchActivities();
     }
@@ -519,110 +519,175 @@
         }).catch(err => { listDiv.innerHTML = "網路錯誤，無法讀取班表。"; });
     }
 
-    function renderActivities(activities) {
+   function renderActivities(activities) {
         const listDiv = document.getElementById('activityList');
-        listDiv.innerHTML = ""; 
-        if (activities.length === 0) { listDiv.innerHTML = "目前沒有可填班的活動。"; return; }
-
+        listDiv.innerHTML = '';
         let hasActivities = false;
-        activities.forEach(act => {
-            if (!act.isSubCard && act.actType !== currentBookingType) return;
-            hasActivities = true;
 
-            const isFull = act.remain <= 0;
-            const actDetails = act.isSubCard ? act.actDetails : `${act.date} ${act.time} ${act.content}`;
-            
-            let btnDisabled = ''; let btnText = '✅ 點我填班'; let btnColor = '#008CBA';
-            let onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
-            
-            // 【修正】創客課程的專長自動防呆審核 (嚴格要求 AND)
-            if (act.actType === '創客課程' && !act.isSubCard) {
-                const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
-                const myInstSkills = sessionStorage.getItem("volInstructorSkills") || "";
-                const reqSkill = act.reqSkill || "";
-                let hasSkill = false;
+        // ==========================================
+        // 🔮 魔法 1：五感探索區專屬的「群組化排版」
+        // ==========================================
+        if (currentBookingType === '五感') {
+            const groupedActs = {};
+            let subCardsHtml = ''; // 獨立處理代班卡片
 
-                // 處理複數專長
-                const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
+            activities.forEach(act => {
+                if (act.actType !== '五感') return;
+                hasActivities = true;
 
-                if (act.role === '講師') {
-                    // 講師：若有要求專長，則志工的體驗講師專長必須【全部具備 (every)】
-                    hasSkill = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myInstSkills.includes(rs));
-                } else if (act.role === '助教') {
-                    // 助教：第一階段必須【全部具備 (every)】，第二階段全開不限專長
-                    hasSkill = act.isPhase1 ? (reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myDutySkills.includes(rs))) : true;
-                }
-
-                if (!hasSkill && !act.isPreview && !isFull) {
-                    btnDisabled = 'disabled';
-                    btnText = `❌ 專長不符 (${reqSkill})`;
-                    btnColor = '#ccc';
-                }
-            }
-
-            // 【新增】培訓活動報名的 4 階段超強防呆邏輯
-            if (act.actType === '培訓' && !act.isSubCard) {
-                const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
-                const mySeedSkills = sessionStorage.getItem("volSeedSkills") || "";
-                // 【修改】將寫死的 0 換成真實的受訓次數
-                const myTrainedCount = parseInt(sessionStorage.getItem("volTrainedCount") || "0", 10);
-                const reqSkill = act.reqSkill || "";
-                const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
-                
-                // 檢查是否符合要求專長
-                let hasSkillDuty = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myDutySkills.includes(rs));
-                let hasSkillSeed = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => mySeedSkills.includes(rs));
-
-                let isAllowed = false;
-                let blockReason = "";
-
-                if (act.phase === 4) {
-                    isAllowed = true;
-                } else if (act.phase === 3) {
-                    if (myTrainedCount === 0) isAllowed = true;
-                    else blockReason = "❌ 限未受訓者";
-                } else if (act.phase === 2) {
-                    if (myTrainedCount === 0 && (hasSkillSeed || hasSkillDuty)) isAllowed = true;
-                    else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 專長不符 (${reqSkill})`;
-                } else if (act.phase === 1) {
-                    if (myTrainedCount === 0 && hasSkillSeed) isAllowed = true;
-                    else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 限對應專長之種子教師`;
+                if (act.isSubCard) {
+                    const actDetails = act.actDetails;
+                    subCardsHtml += `
+                        <div class="activity-card" style="border-left-color: #ff5722;">
+                            <h4 style="margin:0 0 10px 0;">${act.content}</h4>
+                            <p class="meta-text">⏰ 時間：${act.date} ${act.time}</p>
+                            <button class="btn-book" style="background-color: #ff5722;" onclick="submitTakeSubstitute(${act.recordRow}, '${actDetails}')">🙋‍♂️ 協助代班</button>
+                        </div>
+                    `;
                 } else {
-                    blockReason = `👀 尚未開放 (${act.p1TimeStr})`;
+                    if (!groupedActs[act.date]) groupedActs[act.date] = [];
+                    groupedActs[act.date].push(act);
+                }
+            });
+
+            if (!hasActivities) {
+                listDiv.innerHTML = '<p style="text-align:center; color:#666;">目前沒有可填班的時段喔！</p>';
+                return;
+            }
+
+            // 先渲染代班卡片
+            if (subCardsHtml) listDiv.innerHTML += subCardsHtml;
+
+            // 渲染群組化日期卡片
+            for (const date in groupedActs) {
+                const slots = groupedActs[date];
+                const card = document.createElement('div');
+                card.className = 'activity-card';
+                card.style.borderLeftColor = '#e83e8c';
+                card.style.padding = '12px 15px';
+                
+                let slotsHtml = `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px;">`;
+                
+                slots.forEach(act => {
+                    const isFull = act.remain <= 0;
+                    let btnDisabled = ''; let btnColor = '#e83e8c'; let btnText = `剩餘 ${act.remain} 人`;
+                    
+                    if (act.isPreview) {
+                        btnDisabled = 'disabled'; btnColor = '#ff9800'; btnText = '預覽中';
+                    } else if (isFull) {
+                        btnDisabled = 'disabled'; btnColor = '#ccc'; btnText = '已額滿';
+                    }
+                    
+                    const actDetails = `${act.date} ${act.time} ${act.content}`;
+                    const onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
+
+                    slotsHtml += `
+                        <button class="btn-sm" style="background-color: ${btnColor}; color: white; border: none; padding: 8px; border-radius: 8px; cursor: ${btnDisabled ? 'not-allowed' : 'pointer'}; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.4;" onclick="${onclickFn}" ${btnDisabled}>
+                            <span style="font-weight: bold; font-size: 15px;">${act.time}</span>
+                            <span style="font-size: 12px; background: rgba(255,255,255,0.25); padding: 2px 8px; border-radius: 10px; margin-top: 4px;">${btnText}</span>
+                        </button>
+                    `;
+                });
+                slotsHtml += `</div>`;
+
+                card.innerHTML = `<h4 style="margin: 0; color: #333; font-size: 16px; border-bottom: 1px solid #eee; padding-bottom: 8px;">📅 ${date}</h4>${slotsHtml}`;
+                listDiv.appendChild(card);
+            }
+
+        } 
+        // ==========================================
+        // 🔮 魔法 2：其他一般、創客、培訓的標準排版
+        // ==========================================
+        else {
+            activities.forEach(act => {
+                if (!act.isSubCard && act.actType !== currentBookingType) return;
+                hasActivities = true;
+
+                const isFull = act.remain <= 0;
+                const actDetails = act.isSubCard ? act.actDetails : `${act.date} ${act.time} ${act.content}`;
+                
+                let btnDisabled = ''; let btnText = '✅ 點我填班'; let btnColor = '#008CBA';
+                let onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
+                
+                // 【保留】創客課程的專長自動防呆審核
+                if (act.actType === '創客課程' && !act.isSubCard) {
+                    const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
+                    const myInstSkills = sessionStorage.getItem("volInstructorSkills") || "";
+                    const reqSkill = act.reqSkill || "";
+                    let hasSkill = false;
+                    const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
+
+                    if (act.role === '講師') {
+                        hasSkill = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myInstSkills.includes(rs));
+                    } else if (act.role === '助教') {
+                        hasSkill = act.isPhase1 ? (reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myDutySkills.includes(rs))) : true;
+                    }
+
+                    if (!hasSkill && !act.isPreview && !isFull) {
+                        btnDisabled = 'disabled'; btnText = `❌ 專長不符 (${reqSkill})`; btnColor = '#ccc';
+                    }
                 }
 
-                if (!isAllowed && !act.isPreview && !isFull) {
-                    btnDisabled = 'disabled';
-                    btnText = blockReason;
-                    btnColor = '#ccc';
+                // 【保留】培訓活動報名的 4 階段超強防呆邏輯
+                if (act.actType === '培訓' && !act.isSubCard) {
+                    const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
+                    const mySeedSkills = sessionStorage.getItem("volSeedSkills") || "";
+                    const myTrainedCount = parseInt(sessionStorage.getItem("volTrainedCount") || "0", 10);
+                    const reqSkill = act.reqSkill || "";
+                    const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
+                    
+                    let hasSkillDuty = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myDutySkills.includes(rs));
+                    let hasSkillSeed = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => mySeedSkills.includes(rs));
+
+                    let isAllowed = false; let blockReason = "";
+
+                    if (act.phase === 4) {
+                        isAllowed = true;
+                    } else if (act.phase === 3) {
+                        if (myTrainedCount === 0) isAllowed = true; else blockReason = "❌ 限未受訓者";
+                    } else if (act.phase === 2) {
+                        if (myTrainedCount === 0 && (hasSkillSeed || hasSkillDuty)) isAllowed = true;
+                        else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 專長不符 (${reqSkill})`;
+                    } else if (act.phase === 1) {
+                        if (myTrainedCount === 0 && hasSkillSeed) isAllowed = true;
+                        else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 限對應專長之種子教師`;
+                    } else {
+                        blockReason = `👀 尚未開放 (${act.p1TimeStr})`;
+                    }
+
+                    if (!isAllowed && !act.isPreview && !isFull) {
+                        btnDisabled = 'disabled'; btnText = blockReason; btnColor = '#ccc';
+                    }
                 }
-            }
-            
-            // 狀態覆蓋 (代班/預覽/額滿 優先級更高)
-            if (act.isSubCard) {
-                btnText = '🙋‍♂️ 協助代班'; btnColor = '#ff5722';
-                onclickFn = `submitTakeSubstitute(${act.recordRow}, '${actDetails}')`; 
-            } else if (act.isPreview) {
-                btnDisabled = 'disabled'; btnText = `👀 預覽中 (${act.p1TimeStr} 開放填班)`; btnColor = '#ff9800';
-            } else if (isFull) {
-                btnDisabled = 'disabled'; btnText = '❌ 已額滿'; btnColor = '#ccc';
-            }
-            
-            const card = document.createElement('div');
-            card.className = isFull ? 'activity-card full' : 'activity-card';
-            if (act.isPreview) card.style.borderLeftColor = '#ff9800';
-            if (act.isSubCard) card.style.borderLeftColor = '#ff5722';
-            if (act.actType === '創客課程') { card.style.borderLeftColor = '#28a745'; card.style.backgroundColor = '#f4fbf5'; }
-            
-            card.innerHTML = `
-                <h4 style="margin:0 0 10px 0;">${act.content}</h4>
-                <p class="meta-text">⏰ 時間：${act.date} ${act.time}</p>
-                <p class="meta-text">👥 名額：剩餘 <span style="color: ${isFull ? 'red' : 'green'}; font-weight: bold;">${act.remain}</span> / ${act.quota} 人</p>
-                <button class="btn-book" style="background-color: ${btnColor};" onclick="${onclickFn}" ${btnDisabled}>${btnText}</button>
-            `;
-            listDiv.appendChild(card);
-        });
-        if(!hasActivities) listDiv.innerHTML = `目前沒有可填班的 ${currentBookingType} 活動。`;
+                
+                // 狀態覆蓋 (代班/預覽/額滿)
+                if (act.isSubCard) {
+                    btnText = '🙋‍♂️ 協助代班'; btnColor = '#ff5722';
+                    onclickFn = `submitTakeSubstitute(${act.recordRow}, '${actDetails}')`; 
+                } else if (act.isPreview) {
+                    btnDisabled = 'disabled'; btnText = `👀 預覽中 (${act.p1TimeStr} 開放)`; btnColor = '#ff9800';
+                } else if (isFull) {
+                    btnDisabled = 'disabled'; btnText = '❌ 已額滿'; btnColor = '#ccc';
+                }
+                
+                const card = document.createElement('div');
+                card.className = isFull ? 'activity-card full' : 'activity-card';
+                if (act.isPreview) card.style.borderLeftColor = '#ff9800';
+                if (act.isSubCard) card.style.borderLeftColor = '#ff5722';
+                if (act.actType === '創客課程') { card.style.borderLeftColor = '#28a745'; card.style.backgroundColor = '#f4fbf5'; }
+                if (act.actType === '培訓') { card.style.borderLeftColor = '#17a2b8'; card.style.backgroundColor = '#f0f9fa'; }
+                
+                card.innerHTML = `
+                    <h4 style="margin:0 0 10px 0;">${act.content}</h4>
+                    <p class="meta-text">⏰ 時間：${act.date} ${act.time}</p>
+                    <p class="meta-text">👥 名額：剩餘 <span style="color: ${isFull ? 'red' : 'green'}; font-weight: bold;">${act.remain}</span> / ${act.quota} 人</p>
+                    <button class="btn-book" style="background-color: ${btnColor};" onclick="${onclickFn}" ${btnDisabled}>${btnText}</button>
+                `;
+                listDiv.appendChild(card);
+            });
+
+            if (!hasActivities) listDiv.innerHTML = '<p style="text-align:center; color:#666;">目前沒有可填班的時段喔！</p>';
+        }
     }
 
     function submitBooking(actIndex, actDetails, actType) {
