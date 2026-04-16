@@ -181,11 +181,21 @@
 
     <div id="makerMatchPanel" class="panel" style="background: transparent; padding: 0;">
         <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackToMain()">🔙 返回主選單</button>
-        <h3 style="color: #ff5722;">🤝 創客讀者預約媒合看板</h3>
+        <h3 style="color: #d35400; display: flex; align-items: center; justify-content: center; gap: 8px;">🤝 創客預約媒合</h3>
         
-        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <button id="tab-pending" class="btn" style="display: block; margin: 0; background-color: #ff5722;" onclick="switchMatchTab('pending')">🆕 待認領需求</button>
-            <button id="tab-myclaims" class="btn" style="display: block; margin: 0; background-color: #6c757d;" onclick="switchMatchTab('myclaims')">🙋‍♂️ 我的認領</button>
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+            <button id="tab-pending" class="btn" style="display: block; margin: 0; padding: 10px; font-size: 14px; background-color: #d35400;" onclick="switchMatchTab('pending')">🆕 待認領</button>
+            <button id="tab-myclaims" class="btn" style="display: block; margin: 0; padding: 10px; font-size: 14px; background-color: #6c757d;" onclick="switchMatchTab('myclaims')">🙋‍♂️ 我的認領</button>
+            <button id="tab-allclaims" class="btn" style="display: block; margin: 0; padding: 10px; font-size: 14px; background-color: #6c757d;" onclick="switchMatchTab('allclaims')">🗓️ 總班表</button>
+        </div>
+
+        <div id="historyToggleArea" style="display: none; background: #fff; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center; border: 1px solid #ddd;">
+            <label style="font-weight: bold; margin-right: 15px; cursor: pointer; color: #198754;">
+                <input type="radio" name="historyToggle" value="future" checked onchange="renderMatchCards()"> 🟢 未來任務
+            </label>
+            <label style="font-weight: bold; cursor: pointer; color: #6c757d;">
+                <input type="radio" name="historyToggle" value="history" onchange="renderMatchCards()"> ⚪ 歷史紀錄
+            </label>
         </div>
 
         <div id="matchListContainer">讀取資料中...</div>
@@ -322,7 +332,7 @@
         fetchActivities();
     }
 
-    let currentMatchData = { pending: [], myClaims: [] };
+    let currentMatchData = { pending: [], myClaims: [], allClaims: [] };
     let currentMatchTab = 'pending';
 
     function openMakerMatch() {
@@ -347,52 +357,113 @@
 
     function switchMatchTab(tabName) {
         currentMatchTab = tabName;
-        document.getElementById('tab-pending').style.backgroundColor = (tabName === 'pending') ? '#ff5722' : '#6c757d';
-        document.getElementById('tab-myclaims').style.backgroundColor = (tabName === 'myclaims') ? '#ff5722' : '#6c757d';
+        document.getElementById('tab-pending').style.backgroundColor = (tabName === 'pending') ? '#d35400' : '#6c757d';
+        document.getElementById('tab-myclaims').style.backgroundColor = (tabName === 'myclaims') ? '#d35400' : '#6c757d';
+        document.getElementById('tab-allclaims').style.backgroundColor = (tabName === 'allclaims') ? '#d35400' : '#6c757d';
         
+        document.getElementById('historyToggleArea').style.display = (tabName === 'myclaims') ? 'block' : 'none';
+        renderMatchCards();
+    }
+
+    function renderMatchCards() {
         const listDiv = document.getElementById('matchListContainer');
         listDiv.innerHTML = "";
-        const dataList = (tabName === 'pending') ? currentMatchData.pending : currentMatchData.myClaims;
+        
+        let dataList = [];
+        if (currentMatchTab === 'pending') dataList = currentMatchData.pending;
+        else if (currentMatchTab === 'myclaims') dataList = currentMatchData.myClaims;
+        else dataList = currentMatchData.allClaims;
+
+        // 如果是「我的認領」，則進行未來/歷史篩選
+        if (currentMatchTab === 'myclaims') {
+            const showFuture = document.querySelector('input[name="historyToggle"]:checked').value === 'future';
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            dataList = dataList.filter(item => {
+                let itemDate = new Date(item.approvedDate);
+                if (isNaN(itemDate.getTime())) return showFuture; // 無法解析預設放未來
+                return showFuture ? (itemDate >= today) : (itemDate < today);
+            });
+        }
 
         if (dataList.length === 0) {
-            listDiv.innerHTML = (tabName === 'pending') ? "目前沒有待認領的需求喔！" : "您目前沒有認領任何需求。";
+            listDiv.innerHTML = "<div style='text-align:center; padding:20px; color:#666;'>目前沒有符合條件的紀錄喔！</div>";
             return;
         }
 
         dataList.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'activity-card';
-            card.style.borderLeftColor = (tabName === 'pending') ? '#ff5722' : '#28a745';
-            
-            let btnHtml = '';
-            if (tabName === 'pending') {
-                btnHtml = `<button class="btn-book" style="background-color: #ff5722; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" onclick="submitMakerClaim(${item.rowId}, '${item.date} ${item.time} ${item.device}')">🤝 我要認領此需求</button>`;
+            let slotsHtml = '';
+            let assignedHtml = '';
+
+            // 待認領區：顯示可選擇的時段按鈕
+            if (currentMatchTab === 'pending') {
+                slotsHtml += `<div style="font-size: 13px; color: #666; margin-bottom: 8px; font-weight:bold;">👉 請選擇您可配合的時段認領：</div>`;
+                item.slots.forEach(s => {
+                    if (s.d) {
+                        slotsHtml += `
+                        <div style="border: 1px solid #fbd38d; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: #fffaf0;">
+                            <div>
+                                <span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 5px; font-size: 12px; margin-right: 8px;">${s.type}</span>
+                                <span style="font-weight: bold; color: #0056b3; font-size: 14px;">${s.d} ${s.t}</span>
+                            </div>
+                            <button class="btn-sm" style="background: #008CBA; color: white; border: none; border-radius: 5px; padding: 6px 12px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="submitMakerClaim(${item.rowId}, '${s.d}', '${s.t}', '${item.device}')">認領此時段</button>
+                        </div>`;
+                    }
+                });
             } else {
-                btnHtml = `<span class="vol-tag" style="background:#d4edda; color:#155724; font-weight:bold; border: 1px solid #c3e6cb; padding: 6px 12px;">✅ 您已成功認領此任務</span>`;
+                // 已認領區：顯示確定的時段與志工
+                assignedHtml = `
+                <div style="border: 1px solid #c3e6cb; border-radius: 8px; padding: 12px; background: #d4edda; color: #155724; display: flex; flex-direction: column; gap: 5px; margin-top: 15px;">
+                    <div style="display:flex; justify-content: space-between;">
+                        <span style="font-weight: bold; font-size: 13px;">✔️ 核准時段：</span>
+                        <span style="font-weight: bold; font-size: 14px;">${item.approvedDate} ${item.approvedTime}</span>
+                    </div>
+                    <div style="display:flex; justify-content: space-between; border-top: 1px solid #b1dfbb; padding-top: 5px;">
+                        <span style="font-weight: bold; font-size: 13px;">🙋‍♂️ 值班志工：</span>
+                        <span style="font-weight: bold; font-size: 14px;">${item.assignedVol}</span>
+                    </div>
+                </div>`;
             }
 
+            const card = document.createElement('div');
+            card.style = `border: 1px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);`;
+            
             card.innerHTML = `
-                <h4 style="margin:0 0 10px 0; color:#333;">🛠️ ${item.device}</h4>
-                <p class="meta-text">📅 預約日期：<span style="font-weight:bold; color:#d35400;">${item.date} ${item.time}</span></p>
-                <p class="meta-text">👤 讀者姓名：${item.readerName}</p>
-                <p class="meta-text">📝 狀態：${item.status}</p>
-                ${btnHtml}
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <span style="background: #212529; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px; font-weight: bold;">${item.id || '無編號'}</span>
+                    <span style="font-weight: bold; color: #333; font-size: 15px;">👤 ${item.readerName}</span>
+                </div>
+                <div style="text-align: center; margin-bottom: 12px;">
+                    <span style="background: #198754; color: white; padding: 4px 12px; border-radius: 5px; font-size: 13px; font-weight: bold;">${item.volReq || '未註明需求'}</span>
+                </div>
+                <h4 style="margin: 0 0 12px 0; color: #333; font-size: 17px; text-align: center;">✂️ ${item.device}</h4>
+                
+                <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; font-size: 14px; color: #555; line-height: 1.8; margin-bottom: 15px; border: 1px solid #eee;">
+                    👥 <b>讀者：</b>${item.age} 歲 <span style="margin-left: 10px;"><b>陪同：</b>${item.companions || '無'}</span><br>
+                    🪑 <b>作品：</b>${item.projectDesc || '未填寫'}<br>
+                    📦 <b>耗材：</b>${item.materials || '無'}<br>
+                    ⏳ <b style="color: #dc3545;">最晚回覆：${item.deadline || '未定'}</b>
+                </div>
+                ${slotsHtml}
+                ${assignedHtml}
             `;
             listDiv.appendChild(card);
         });
     }
 
-    function submitMakerClaim(rowId, details) {
+    function submitMakerClaim(rowId, selDate, selTime, device) {
         const lineId = sessionStorage.getItem("volLineId");
         const name = sessionStorage.getItem("volName");
         
-        if (confirm(`確定要認領此項讀者預約嗎？\\n\\n📌 預約內容：\\n${details}`)) {
+        // 使用原生 confirm，但文字乾淨俐落，無 \n 雜亂問題
+        if (confirm(`最終確認：\n\n您確定要認領此任務嗎？\n\n📌 設備：${device}\n📅 時段：${selDate} ${selTime}`)) {
             showLoading();
-            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "claimMakerTask", lineId: lineId, name: name, rowId: rowId }) })
+            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "claimMakerTask", lineId: lineId, name: name, rowId: rowId, selDate: selDate, selTime: selTime }) })
             .then(res => res.json()).then(data => {
                 hideLoading();
                 if (data.status === "success") { alert(data.message); fetchMakerMatches(); } 
-                else { alert("⚠️ 認領失敗：\\n" + data.message); fetchMakerMatches(); }
+                else { alert("⚠️ 認領失敗：\n" + data.message); fetchMakerMatches(); }
             }).catch(err => { hideLoading(); alert("連線逾時。"); });
         }
     }
