@@ -179,6 +179,19 @@
         <div id="calendarList">讀取中...</div>
     </div>
 
+    <div id="makerMatchPanel" class="panel" style="background: transparent; padding: 0;">
+        <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackToMain()">🔙 返回主選單</button>
+        <h3 style="color: #ff5722;">🤝 創客讀者預約媒合看板</h3>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <button id="tab-pending" class="btn" style="display: block; margin: 0; background-color: #ff5722;" onclick="switchMatchTab('pending')">🆕 待認領需求</button>
+            <button id="tab-myclaims" class="btn" style="display: block; margin: 0; background-color: #6c757d;" onclick="switchMatchTab('myclaims')">🙋‍♂️ 我的認領</button>
+        </div>
+
+        <div id="matchListContainer">讀取資料中...</div>
+    </div>
+    <div id="staffModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;">
+
     <div id="staffModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;">
         <div style="background: white; padding: 20px; border-radius: 10px; width: 85%; max-width: 350px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
             <h3 style="margin-top: 0; color: #333; border-bottom: 2px solid #00B900; padding-bottom: 10px;">👤 志工詳細資訊</h3>
@@ -296,6 +309,7 @@
         document.getElementById('masterPanel').style.display = 'none';
         document.getElementById('myPanel').style.display = 'none';
         document.getElementById('calendarPanel').style.display = 'none';
+        document.getElementById('makerMatchPanel').style.display = 'none'; // 【新增這一行】
         document.getElementById('buttonArea').style.display = 'block';
     }
 
@@ -308,9 +322,79 @@
         fetchActivities();
     }
 
-    // 預留給創客讀者媒合看板的按鈕
+    let currentMatchData = { pending: [], myClaims: [] };
+    let currentMatchTab = 'pending';
+
     function openMakerMatch() {
-        alert("【開發中】🤝 創客讀者預約媒合看板即將上線，敬請期待！");
+        document.getElementById('buttonArea').style.display = 'none';
+        document.getElementById('makerMatchPanel').style.display = 'block';
+        fetchMakerMatches();
+    }
+
+    function fetchMakerMatches() {
+        const listDiv = document.getElementById('matchListContainer');
+        listDiv.innerHTML = "資料載入中，請稍候...";
+        const lineId = sessionStorage.getItem("volLineId");
+
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getMakerMatches", lineId: lineId }) })
+        .then(res => res.json()).then(data => {
+            if (data.status === "success") {
+                currentMatchData = data.data;
+                switchMatchTab('pending');
+            } else { listDiv.innerHTML = "讀取失敗：" + data.message; }
+        }).catch(err => { listDiv.innerHTML = "網路連線錯誤。"; });
+    }
+
+    function switchMatchTab(tabName) {
+        currentMatchTab = tabName;
+        document.getElementById('tab-pending').style.backgroundColor = (tabName === 'pending') ? '#ff5722' : '#6c757d';
+        document.getElementById('tab-myclaims').style.backgroundColor = (tabName === 'myclaims') ? '#ff5722' : '#6c757d';
+        
+        const listDiv = document.getElementById('matchListContainer');
+        listDiv.innerHTML = "";
+        const dataList = (tabName === 'pending') ? currentMatchData.pending : currentMatchData.myClaims;
+
+        if (dataList.length === 0) {
+            listDiv.innerHTML = (tabName === 'pending') ? "目前沒有待認領的需求喔！" : "您目前沒有認領任何需求。";
+            return;
+        }
+
+        dataList.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'activity-card';
+            card.style.borderLeftColor = (tabName === 'pending') ? '#ff5722' : '#28a745';
+            
+            let btnHtml = '';
+            if (tabName === 'pending') {
+                btnHtml = `<button class="btn-book" style="background-color: #ff5722; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" onclick="submitMakerClaim(${item.rowId}, '${item.date} ${item.time} ${item.device}')">🤝 我要認領此需求</button>`;
+            } else {
+                btnHtml = `<span class="vol-tag" style="background:#d4edda; color:#155724; font-weight:bold; border: 1px solid #c3e6cb; padding: 6px 12px;">✅ 您已成功認領此任務</span>`;
+            }
+
+            card.innerHTML = `
+                <h4 style="margin:0 0 10px 0; color:#333;">🛠️ ${item.device}</h4>
+                <p class="meta-text">📅 預約日期：<span style="font-weight:bold; color:#d35400;">${item.date} ${item.time}</span></p>
+                <p class="meta-text">👤 讀者姓名：${item.readerName}</p>
+                <p class="meta-text">📝 狀態：${item.status}</p>
+                ${btnHtml}
+            `;
+            listDiv.appendChild(card);
+        });
+    }
+
+    function submitMakerClaim(rowId, details) {
+        const lineId = sessionStorage.getItem("volLineId");
+        const name = sessionStorage.getItem("volName");
+        
+        if (confirm(`確定要認領此項讀者預約嗎？\\n\\n📌 預約內容：\\n${details}`)) {
+            showLoading();
+            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "claimMakerTask", lineId: lineId, name: name, rowId: rowId }) })
+            .then(res => res.json()).then(data => {
+                hideLoading();
+                if (data.status === "success") { alert(data.message); fetchMakerMatches(); } 
+                else { alert("⚠️ 認領失敗：\\n" + data.message); fetchMakerMatches(); }
+            }).catch(err => { hideLoading(); alert("連線逾時。"); });
+        }
     }
 
     function fetchActivities() {
