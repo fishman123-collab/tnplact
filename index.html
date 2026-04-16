@@ -190,12 +190,14 @@
         </div>
 
         <div id="historyToggleArea" style="display: none; background: #fff; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center; border: 1px solid #ddd;">
-            <label style="font-weight: bold; margin-right: 15px; cursor: pointer; color: #198754;">
-                <input type="radio" name="historyToggle" value="future" checked onchange="renderMatchCards()"> 🟢 未來任務
-            </label>
-            <label style="font-weight: bold; cursor: pointer; color: #6c757d;">
-                <input type="radio" name="historyToggle" value="history" onchange="renderMatchCards()"> ⚪ 歷史紀錄
-            </label>
+            <div style="display: flex; justify-content: center; gap: 30px; align-items: center;">
+                <label style="display: inline-flex; align-items: center; font-weight: bold; cursor: pointer; color: #198754; margin: 0;">
+                    <input type="radio" name="historyToggle" value="future" checked onchange="renderMatchCards()" style="width: auto; margin: 0 8px 0 0;"> 🟢 未來任務
+                </label>
+                <label style="display: inline-flex; align-items: center; font-weight: bold; cursor: pointer; color: #6c757d; margin: 0;">
+                    <input type="radio" name="historyToggle" value="history" onchange="renderMatchCards()" style="width: auto; margin: 0 8px 0 0;"> ⚪ 歷史紀錄
+                </label>
+            </div>
         </div>
 
         <div id="matchListContainer">讀取資料中...</div>
@@ -428,16 +430,16 @@
                     }
                 });
             } else {
-                // 已認領/總班表區：顯示確定的時段與志工
+                // 已認領/總班表區：顯示確定的時段與志工 (修改為靠左緊湊排列)
                 assignedHtml = `
-                <div style="border: 1px solid #c3e6cb; border-radius: 8px; padding: 12px; background: #d4edda; color: #155724; display: flex; flex-direction: column; gap: 5px; margin-top: 15px;">
-                    <div style="display:flex; justify-content: space-between;">
+                <div style="border: 1px solid #c3e6cb; border-radius: 8px; padding: 12px; background: #d4edda; color: #155724; display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
+                    <div style="display:flex; align-items: center; gap: 10px;">
                         <span style="font-weight: bold; font-size: 13px;">✔️ 核准時段：</span>
-                        <span style="font-weight: bold; font-size: 14px;">${item.approvedDate} ${item.approvedTime}</span>
+                        <span style="font-weight: bold; font-size: 15px; color: #0f5132;">${item.approvedDate} ${item.approvedTime}</span>
                     </div>
-                    <div style="display:flex; justify-content: space-between; border-top: 1px solid #b1dfbb; padding-top: 5px;">
+                    <div style="display:flex; align-items: center; gap: 10px; border-top: 1px dashed #b1dfbb; padding-top: 8px;">
                         <span style="font-weight: bold; font-size: 13px;">🙋‍♂️ 值班志工：</span>
-                        <span style="font-weight: bold; font-size: 14px;">${item.assignedVol}</span>
+                        <span style="font-weight: bold; font-size: 15px; color: #0f5132;">${item.assignedVol}</span>
                     </div>
                 </div>`;
             }
@@ -453,9 +455,9 @@
             card.style = `border: 1px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);`;
             
             card.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <span style="background: #212529; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px; font-weight: bold;">${item.id || '無編號'}</span>
-                    <span style="font-weight: bold; color: #333; font-size: 15px;">👤 ${item.readerName}</span>
+                <div style="position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; min-height: 24px;">
+                    <span style="position: absolute; left: 0; background: #212529; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px; font-weight: bold;">${item.id || '無編號'}</span>
+                    <span style="font-weight: bold; color: #111; font-size: 19px; letter-spacing: 1px;">👤 ${item.readerName}</span>
                 </div>
                 <div style="text-align: center; margin-bottom: 12px;">
                     <span style="background: #198754; color: white; padding: 4px 12px; border-radius: 5px; font-size: 13px; font-weight: bold;">${item.volReq || '未註明需求'}</span>
