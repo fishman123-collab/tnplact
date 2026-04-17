@@ -285,6 +285,7 @@
                 <option value="蛙寶">🐸 蛙寶故事團</option>
                 <option value="五感">✋ 五感體驗</option>
                 <option value="創客課程">👨‍🏫 創客課程</option>
+                <option value="創客讀者預約">🤝 創客讀者預約</option>
                 <option value="培訓">📖 培訓活動</option>
             `;
         } else if (userData.role === "volunteer") {
@@ -305,7 +306,7 @@
             }
             if (groupsStr.includes('創客')) {
                 document.getElementById('sec-maker').style.display = "block";
-                filterOptions += `<option value="創客課程">👨‍🏫 創客課程</option><option value="培訓">📖 培訓活動</option>`;
+                filterOptions += `<option value="創客讀者預約">🤝 創客讀者預約</option><option value="創客課程">👨‍🏫 創客課程</option><option value="培訓">📖 培訓活動</option>`;
             }
             
             document.getElementById('btn-calendar-view').style.display = "block";
@@ -532,8 +533,17 @@
             let subCardsHtml = ''; // 獨立處理代班卡片
 
             activities.forEach(act => {
-                if (act.actType !== '五感') return;
-                hasActivities = true;
+            // 【修正】嚴格的顯示隔離邏輯
+            if (act.isSubCard) {
+                // 如果是代班卡片，它必須跟目前點開的區塊 (currentBookingType) 完全一致才顯示
+                // 例如點開「五感」，就只顯示 actType === '五感' 的代班卡
+                if (act.actType !== currentBookingType) return;
+            } else {
+                // 一般卡片的顯示邏輯
+                if (act.actType !== currentBookingType) return;
+            }
+
+            hasActivities = true;
 
                 if (act.isSubCard) {
                     const actDetails = act.actDetails;
@@ -808,13 +818,16 @@
         const listDiv = document.getElementById('myActivityList');
         listDiv.innerHTML = ""; 
         
-        // 執行陣列過濾 (利用精準標籤判斷)
+        // 【終極修復】不再用字串比對，直接使用後端傳來的精準標籤 (shift.actType)
         const filteredShifts = globalMyShifts.filter(shift => {
             if (filterVal === 'all') return true;
-            if (filterVal === '一般') return !shift.actDetails.includes('[主講]') && !shift.actDetails.includes('[小幫手]') && !shift.actDetails.includes('[講師]') && !shift.actDetails.includes('[助教]') && !shift.actDetails.includes('培訓');
-            if (filterVal === '導覽') return shift.actDetails.includes('[主講]') || shift.actDetails.includes('[小幫手]');
-            if (filterVal === '創客課程') return shift.actDetails.includes('[講師]') || shift.actDetails.includes('[助教]');
-            if (filterVal === '培訓') return shift.actDetails.includes('培訓');
+            if (filterVal === '一般') return shift.actType === '一般';
+            if (filterVal === '導覽') return shift.actType === '導覽';
+            if (filterVal === '五感') return shift.actType === '五感';
+            if (filterVal === '蛙寶') return shift.actType === '蛙寶';
+            if (filterVal === '創客課程') return shift.actType === '創客課程';
+            if (filterVal === '創客讀者預約') return shift.actType === '創客讀者預約';
+            if (filterVal === '培訓') return shift.actType === '培訓';
             return true;
         });
 
@@ -908,11 +921,15 @@
 
         dates.forEach(date => {
             // 過濾該日期下的活動
+            // 【終極修復】精準的月曆標籤過濾
             const filteredActs = globalCalendarData[date].filter(act => {
                 if (filterVal === 'all') return true;
-                if (filterVal === '導覽') return act.actType === '導覽';
                 if (filterVal === '一般') return act.actType === '一般';
+                if (filterVal === '導覽') return act.actType === '導覽';
+                if (filterVal === '五感') return act.actType === '五感';
+                if (filterVal === '蛙寶') return act.actType === '蛙寶';
                 if (filterVal === '創客課程') return act.actType === '創客課程';
+                if (filterVal === '創客讀者預約') return act.actType === '創客讀者預約';
                 if (filterVal === '培訓') return act.actType === '培訓';
                 return true;
             });
