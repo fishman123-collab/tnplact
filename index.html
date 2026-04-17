@@ -587,7 +587,9 @@
                 card.style.borderLeftColor = '#e83e8c';
                 card.style.padding = '12px 15px';
                 
-                let slotsHtml = `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px;">`;
+                // 確保 grid 是兩欄分布，並縮小卡片間距
+let slotsHtml = `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;">`;
+
                 
                 slots.forEach(act => {
                     const isFull = act.remain <= 0;
