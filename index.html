@@ -843,48 +843,90 @@ if (act.isSubCard) {
 
     // 【升級】帶有前端類別篩選功能的 render
     function renderMySchedule() {
-        const filterVal = document.getElementById('myScheduleFilter').value;
-        const listDiv = document.getElementById('myActivityList');
-        listDiv.innerHTML = ""; 
-        
-        // 【終極修復】不再用字串比對，直接使用後端傳來的精準標籤 (shift.actType)
-        const filteredShifts = globalMyShifts.filter(shift => {
-            if (filterVal === 'all') return true;
-            if (filterVal === '一般') return shift.actType === '一般';
-            if (filterVal === '導覽') return shift.actType === '導覽';
-            if (filterVal === '五感') return shift.actType === '五感';
-            if (filterVal === '蛙寶') return shift.actType === '蛙寶';
-            if (filterVal === '創客課程') return shift.actType === '創客課程';
-            if (filterVal === '創客讀者預約') return shift.actType === '創客讀者預約';
-            if (filterVal === '培訓') return shift.actType === '培訓';
-            return true;
+    const filterVal = document.getElementById('myScheduleFilter').value;
+    const listDiv = document.getElementById('myActivityList');
+    listDiv.innerHTML = ""; 
+
+    // 1. 過濾與排序：先根據 actTimestamp 進行由近到遠的排序 (問題 1 解決方案)
+    const filteredShifts = globalMyShifts
+        .filter(shift => filterVal === 'all' ? true : shift.actType === filterVal)
+        .sort((a, b) => a.actTimestamp - b.actTimestamp);
+
+    if (filteredShifts.length === 0) { 
+        listDiv.innerHTML = "<p style='text-align:center; color:#666; padding:20px;'>此分類下沒有任何排班紀錄喔！</p>";
+        return; 
+    }
+
+    // 2. 如果是「顯示全部」，採用群組化排版 (問題 2 解決方案)
+    if (filterVal === 'all') {
+        const groupedShifts = {};
+        filteredShifts.forEach(shift => {
+            // 從 actDetails 抓取日期字串 (YYYY/MM/DD) 作為 Key
+            const dateMatch = shift.actDetails.match(/\d{4}\/\d{2}\/\d{2}/);
+            const dateKey = dateMatch ? dateMatch[0] : "其他";
+            if (!groupedShifts[dateKey]) groupedShifts[dateKey] = [];
+            groupedShifts[dateKey].push(shift);
         });
 
-        if (filteredShifts.length === 0) { 
-            listDiv.innerHTML = "此分類下沒有任何排班紀錄喔！"; 
-            return; 
-        }
+        // 依日期渲染
+        Object.keys(groupedShifts).sort().forEach(date => {
+            const dateHeader = document.createElement('div');
+            dateHeader.className = 'date-header';
+            dateHeader.innerText = `📅 ${date}`;
+            listDiv.appendChild(dateHeader);
 
+            groupedShifts[date].forEach(shift => {
+                const card = createScheduleCard(shift);
+                listDiv.appendChild(card);
+            });
+        });
+    } else {
+        // 若選擇特定類別，則直接顯示排序後的卡片
         filteredShifts.forEach(shift => {
-            const card = document.createElement('div'); card.className = 'activity-card'; card.style.borderLeftColor = '#2196F3';
-            let btnHtml = '';
-            
-            if (shift.status === '徵求代班') {
-                btnHtml = `<button class="btn-book" style="background-color: #6c757d;" onclick="submitRetractSubstitute(${shift.recordRow}, '${shift.actDetails}')">🔙 撤回代班請求 (恢復值勤)</button>`;
-            } else if (shift.isDirectCancel) {
-                btnHtml = `<button class="btn-book" style="background-color: #dc3545; border: 1px solid #a71d2a; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="submitAskSubstitute(${shift.recordRow}, '${shift.actDetails}', true)">取消釋出 (直接放棄名額)</button>`;
-            } else {
-                btnHtml = `<button class="btn-book" style="background-color: #ff9800; border: 1px solid #d35400; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="submitAskSubstitute(${shift.recordRow}, '${shift.actDetails}', false)">我要請假 (尋找代班)</button>`;
-            }
-            
-            card.innerHTML = `
-                <h4 style="margin:0 0 10px 0;">${shift.actDetails}</h4>
-                <p class="meta-text">🔖 狀態：<span style="color: ${shift.status==='正常'?'green':'#ff9800'}; font-weight: bold;">${shift.status}</span></p>
-                ${btnHtml}
-            `;
+            const card = createScheduleCard(shift);
             listDiv.appendChild(card);
         });
     }
+}
+
+    // 輔助函數：建立具有顏色區隔的個人排班卡片
+function createScheduleCard(shift) {
+    const card = document.createElement('div');
+    card.className = 'activity-card';
+    
+    // 🎨 分類顏色配置 (與班表總覽一致)
+    let borderColor = '#8e44ad'; 
+    let bgColor = '#ffffff';
+
+    switch(shift.actType) {
+        case '一般': borderColor = '#6c757d'; break;
+        case '導覽': borderColor = '#17a2b8'; bgColor = '#f4fafb'; break;
+        case '五感': borderColor = '#e83e8c'; bgColor = '#fff0f5'; break;
+        case '蛙寶': borderColor = '#ff9800'; bgColor = '#fff8e1'; break;
+        case '創客課程': borderColor = '#28a745'; bgColor = '#f4fbf5'; break;
+        case '創客讀者預約': borderColor = '#d35400'; bgColor = '#fdf3ed'; break;
+        case '培訓': borderColor = '#007bff'; bgColor = '#f0f8ff'; break;
+    }
+
+    card.style.borderLeftColor = borderColor;
+    card.style.backgroundColor = bgColor;
+
+    let btnHtml = '';
+    if (shift.status === '徵求代班') {
+        btnHtml = `<button class="btn-book" style="background-color: #6c757d;" onclick="submitRetractSubstitute(${shift.recordRow}, '${shift.actDetails}')">🔙 撤回代班請求 (恢復值勤)</button>`;
+    } else if (shift.isDirectCancel) {
+        btnHtml = `<button class="btn-book" style="background-color: #dc3545;" onclick="submitAskSubstitute(${shift.recordRow}, '${shift.actDetails}', true)">直接取消 (名額釋出)</button>`;
+    } else {
+        btnHtml = `<button class="btn-book" style="background-color: #ff9800;" onclick="submitAskSubstitute(${shift.recordRow}, '${shift.actDetails}', false)">我要請假 (徵求代班)</button>`;
+    }
+
+    card.innerHTML = `
+        <h4 style="margin:0 0 10px 0; font-size: 16px;">${shift.actDetails}</h4>
+        <p class="meta-text" style="margin-bottom: 8px;">🔖 狀態：<span style="color: ${shift.status==='正常'?'green':'#ff4400'}; font-weight: bold;">${shift.status}</span></p>
+        ${btnHtml}
+    `;
+    return card;
+}
 
     function submitAskSubstitute(recordRow, actDetails, isDirectCancel) {
         const lineId = sessionStorage.getItem("volLineId");
