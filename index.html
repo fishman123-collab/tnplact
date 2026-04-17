@@ -830,23 +830,7 @@
                 globalMyShifts = data.data; // 存入全域變數
                 renderMySchedule(); // 呼叫無參數的 render，它會自動抓全域變數跟篩選器
             } else listDiv.innerHTML = "讀取失敗：" + data.message;
-        })fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getMySchedule", lineId: lineId }) })
-        .then(res => res.json()).then(data => {
-            hideLoading();
-            if (data.status === "success") {
-                globalMyShifts = data.data;
-                renderMySchedule();
-            } else {
-                alert("讀取失敗：" + data.message);
-                goBackToMain();
-            }
-        }).catch(err => {
-            hideLoading();
-            // 【修復】把實際錯誤原因印出來，方便未來除錯
-            alert("網路錯誤或資料解析異常，無法讀取您的班表。詳細原因：" + err.message);
-            console.error(err);
-            goBackToMain();
-        });
+        }).catch(err => { listDiv.innerHTML = "網路錯誤，無法讀取您的班表。"; });
     }
 
     // 【升級】帶有前端類別篩選功能的 render
@@ -871,9 +855,8 @@
         let dayBlock = null;
 
         filteredShifts.forEach(shift => {
-            // 【修復】確保 actDetails 絕對是字串，且使用完美的 niceDate，徹底避開覆蓋
-            const shiftDetails = shift.actDetails ? String(shift.actDetails) : "";
-            const shiftDate = shift.niceDate || shiftDetails.split(' ')[0];
+            // 【終極修復】直接使用後端傳來的乾淨日期 (niceDate)，徹底避開文字切割導致的同日誤判
+            const shiftDate = shift.niceDate || shift.actDetails.split(' ')[0];
             
             if (shiftDate !== lastDate) {
                 lastDate = shiftDate;
