@@ -945,12 +945,31 @@
             filteredActs.forEach(act => {
                 const card = document.createElement('div');
                 card.className = 'activity-card';
-                if (act.actType === '導覽') {
-                    card.style.borderLeftColor = '#17a2b8'; card.style.backgroundColor = '#f4fafb';
-                } else {
-                    card.style.borderLeftColor = '#8e44ad'; card.style.backgroundColor = '#ffffff';
-                }
                 card.style.padding = '10px 15px';
+
+                // 【新增】根據 actType 動態設定邊框與背景顏色
+                let borderColor = '#8e44ad'; 
+                let bgColor = '#ffffff';
+
+                switch(act.actType) {
+                    case '一般': 
+                        borderColor = '#6c757d'; break;
+                    case '導覽': 
+                        borderColor = '#17a2b8'; bgColor = '#f4fafb'; break;
+                    case '五感': 
+                        borderColor = '#e83e8c'; bgColor = '#fff0f5'; break;
+                    case '蛙寶': 
+                        borderColor = '#ff9800'; bgColor = '#fff8e1'; break;
+                    case '創客課程': 
+                        borderColor = '#28a745'; bgColor = '#f4fbf5'; break;
+                    case '創客讀者預約': 
+                        borderColor = '#d35400'; bgColor = '#fdf3ed'; break;
+                    case '培訓': 
+                        borderColor = '#007bff'; bgColor = '#f0f8ff'; break;
+                }
+
+                card.style.borderLeftColor = borderColor;
+                card.style.backgroundColor = bgColor;
                 
                 let tagsHtml = '';
                 
