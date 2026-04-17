@@ -72,9 +72,9 @@
         </div>
 
         <div class="menu-section" id="sec-fivesenses">
-            <button class="menu-title" onclick="toggleMenu('menu-fivesenses')"><span>✋ 五感體驗組</span> <span>▾</span></button>
+            <button class="menu-title" onclick="toggleMenu('menu-fivesenses')"><span>✋ 五感探索組</span> <span>▾</span></button>
             <div class="menu-content" id="menu-fivesenses">
-                <button class="btn" style="background-color: #e83e8c; display: block;" onclick="openBooking('五感')">✋ 五感體驗區排班</button>
+                <button class="btn" style="background-color: #e83e8c; display: block;" onclick="openBooking('五感')">✋ 五感探索區排班</button>
             </div>
         </div>
 
@@ -119,7 +119,7 @@
         </div>
 
         <div class="menu-section" style="display:block;">
-            <button class="menu-title" onclick="toggleMenu('staff-sense')"><span>✋ 五感體驗區 設定</span> <span>▾</span></button>
+            <button class="menu-title" onclick="toggleMenu('staff-sense')"><span>✋ 五感探索區 設定</span> <span>▾</span></button>
             <div class="menu-content" id="staff-sense" style="display:none;">
                 <label>開放月份：</label><input type="month" id="sense_m">
                 <label>預覽時間：</label><input type="datetime-local" id="sense_prev">
@@ -283,7 +283,7 @@
                 <option value="一般">📅 一般活動</option>
                 <option value="導覽">🚩 導覽活動</option>
                 <option value="蛙寶">🐸 蛙寶故事團</option>
-                <option value="五感">✋ 五感體驗</option>
+                <option value="五感">✋ 五感探索</option>
                 <option value="創客課程">👨‍🏫 創客課程</option>
                 <option value="創客讀者預約">🤝 創客讀者預約</option>
                 <option value="培訓">📖 培訓活動</option>
@@ -302,7 +302,7 @@
             }
             if (groupsStr.includes('五感')) {
                 document.getElementById('sec-fivesenses').style.display = "block";
-                filterOptions += `<option value="五感">✋ 五感體驗</option>`;
+                filterOptions += `<option value="五感">✋ 五感探索</option>`;
             }
             if (groupsStr.includes('創客')) {
                 document.getElementById('sec-maker').style.display = "block";
