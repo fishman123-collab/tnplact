@@ -533,17 +533,28 @@
             let subCardsHtml = ''; // 獨立處理代班卡片
 
             activities.forEach(act => {
-            // 【修正】嚴格的顯示隔離邏輯
-            if (act.isSubCard) {
-                // 如果是代班卡片，它必須跟目前點開的區塊 (currentBookingType) 完全一致才顯示
-                // 例如點開「五感」，就只顯示 actType === '五感' 的代班卡
-                if (act.actType !== currentBookingType) return;
-            } else {
-                // 一般卡片的顯示邏輯
-                if (act.actType !== currentBookingType) return;
-            }
+    // 取得目前登入志工的組別權限
+    const myGroups = sessionStorage.getItem("volGroup") || "";
 
-            hasActivities = true;
+    if (act.isSubCard) {
+        // 第一層：類別隔離（點開五感就只看五感代班）
+        if (act.actType !== currentBookingType) return;
+
+        // 第二層：組別權限隔離（只有該組或兼任該組的志工才看得到）
+        let hasGroupPermission = false;
+        if (act.actType === '一般' || act.actType === '導覽') hasGroupPermission = myGroups.includes('活動組');
+        else if (act.actType === '五感') hasGroupPermission = myGroups.includes('五感');
+        else if (act.actType === '蛙寶') hasGroupPermission = (myGroups.includes('故事') || myGroups.includes('蛙寶'));
+        else if (act.actType === '創客課程' || act.actType === '創客讀者預約' || act.actType === '培訓') hasGroupPermission = myGroups.includes('創客');
+
+        if (!hasGroupPermission) return; // 若無權限則跳過不顯示該代班卡片
+        
+    } else {
+        // 一般卡片（非代班）只需判斷類別是否符合
+        if (act.actType !== currentBookingType) return;
+    }
+
+    hasActivities = true;
 
                 if (act.isSubCard) {
                     const actDetails = act.actDetails;
@@ -610,7 +621,23 @@
         // ==========================================
         else {
             activities.forEach(act => {
-                if (!act.isSubCard && act.actType !== currentBookingType) return;
+                const myGroups = sessionStorage.getItem("volGroup") || "";
+
+if (act.isSubCard) {
+    // 代班卡片的雙重過濾
+    if (act.actType !== currentBookingType) return;
+    
+    let hasGroupPermission = false;
+    if (act.actType === '一般' || act.actType === '導覽') hasGroupPermission = myGroups.includes('活動組');
+    else if (act.actType === '五感') hasGroupPermission = myGroups.includes('五感');
+    else if (act.actType === '蛙寶') hasGroupPermission = (myGroups.includes('故事') || myGroups.includes('蛙寶'));
+    else if (act.actType === '創客課程' || act.actType === '創客讀者預約' || act.actType === '培訓') hasGroupPermission = myGroups.includes('創客');
+    
+    if (!hasGroupPermission) return;
+} else {
+    // 一般卡片的類別過濾
+    if (act.actType !== currentBookingType) return;
+}
                 hasActivities = true;
 
                 const isFull = act.remain <= 0;
