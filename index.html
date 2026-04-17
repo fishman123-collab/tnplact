@@ -839,7 +839,6 @@
         const listDiv = document.getElementById('myScheduleList');
         listDiv.innerHTML = '';
         
-        // 【終極修復】：直接比對後端傳來的精準 actType
         const filteredShifts = globalMyShifts.filter(shift => {
             if (filterVal === 'all') return true;
             return shift.actType === filterVal;
@@ -850,15 +849,14 @@
             return;
         }
 
-        // 【終極修復】：依照時間戳記精準排序，保證不漏接、不分塊
         filteredShifts.sort((a, b) => a.sortTime - b.sortTime);
 
         let lastDate = "";
         let dayBlock = null;
 
         filteredShifts.forEach(shift => {
-            // 從完美的日期字串中擷取日期 (例如 2026/04/18(六) -> 取前半)
-            const shiftDate = shift.actDetails.split(' ')[0];
+            // 【終極修復】直接使用後端傳來的乾淨日期 (niceDate)，徹底避開文字切割導致的同日誤判
+            const shiftDate = shift.niceDate || shift.actDetails.split(' ')[0];
             
             if (shiftDate !== lastDate) {
                 lastDate = shiftDate;
@@ -870,27 +868,25 @@
 
             const isCanceled = (shift.status === '取消');
             const isSub = (shift.status === '徵求代班');
-            
-            // 取得七彩標籤樣式
             const badge = getBadgeStyle(shift.actType);
             const badgeHtml = `<span style="background:${badge.bg}; color:${badge.color}; border: 1px solid ${badge.border}; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-right: 8px;">${shift.actType}</span>`;
 
             let actionBtn = '';
             if (shift.isDirectCancel && !isCanceled && !isSub) {
-                actionBtn = `<button class="btn-cancel" onclick="submitAskSubstitute(${shift.recordRow}, true)">❌ 直接取消排班</button>`;
+                actionBtn = `<button class="btn-cancel" onclick="submitAskSubstitute('${shift.recordRow}', true)">❌ 直接取消排班</button>`;
             } else if (!isCanceled && !isSub && !shift.actDetails.includes('[預約]')) {
-                actionBtn = `<button class="btn-cancel" style="background-color: #ff9800;" onclick="submitAskSubstitute(${shift.recordRow}, false)">🆘 找人代班</button>`;
+                actionBtn = `<button class="btn-cancel" style="background-color: #ff9800;" onclick="submitAskSubstitute('${shift.recordRow}', false)">🆘 找人代班</button>`;
             } else if (!isCanceled && !isSub && shift.actDetails.includes('[預約]')) {
                 actionBtn = `<button class="btn-cancel" style="background-color: #ff9800;" onclick="submitAskSubstitute('${shift.recordRow}', false)">🆘 預約任務找代班</button>`;
-            } else if (isSub && shift.actDetails.includes('[預約]')) {
-                actionBtn = `<button class="btn-cancel" style="background-color: #6c757d;" onclick="submitRetractSubstitute('${shift.recordRow}')">🔙 撤回代班請求</button>`;
             } else if (isSub) {
-                actionBtn = `<button class="btn-cancel" style="background-color: #6c757d;" onclick="submitRetractSubstitute(${shift.recordRow})">🔙 撤回代班請求</button>`;
+                actionBtn = `<button class="btn-cancel" style="background-color: #6c757d;" onclick="submitRetractSubstitute('${shift.recordRow}')">🔙 撤回代班請求</button>`;
             }
 
             const card = document.createElement('div');
             card.className = isCanceled ? 'activity-card canceled' : 'activity-card';
-            if (isSub) card.style.borderLeftColor = '#ff9800';
+            
+            // 【修復】套用分類專屬顏色的邊框
+            card.style.borderLeftColor = isSub ? '#ff9800' : badge.color;
             
             card.innerHTML = `
                 <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
@@ -987,11 +983,11 @@
                 const actCard = document.createElement('div');
                 actCard.className = 'activity-card';
                 
-                // 套用七彩標籤
                 const badge = getBadgeStyle(act.actType);
                 const badgeHtml = `<span style="background:${badge.bg}; color:${badge.color}; border: 1px solid ${badge.border}; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-right: 8px; vertical-align: middle;">${act.actType}</span>`;
 
-                if (act.isPreview) actCard.style.borderLeftColor = '#ff9800';
+                // 【修復】讓總覽的卡片邊框顏色與標籤同步
+                actCard.style.borderLeftColor = act.isPreview ? '#ff9800' : badge.color;
 
                 let html = `<h4 style="margin:0 0 10px 0;">${badgeHtml} ${act.time ? act.time + ' ' : ''}${act.content}</h4>`;
                 
@@ -1007,7 +1003,7 @@
                             let volInfo = v.name;
                             if (isStaff) volInfo += ` <span style="font-size:12px; color:#666;">(${v.lineName} / ${v.phone})</span>`;
                             let subBadge = v.isSub ? `<span class="vol-tag" style="background:#ff9800; color:white; border-color:#e68a00;">🆘 徵求代班</span>` : '';
-                            let cancelBtn = (isStaff && !v.isSub) ? `<button class="btn-sm" style="background:#dc3545; color:white; border:none; border-radius:3px; cursor:pointer;" onclick="openStaffModal(${v.recordRow}, '${v.name}', '${v.actDetails}')">取消</button>` : '';
+                            let cancelBtn = (isStaff && !v.isSub) ? `<button class="btn-sm" style="background:#dc3545; color:white; border:none; border-radius:3px; cursor:pointer;" onclick="openStaffModal('${v.recordRow}', '${v.name}', '${v.actDetails}')">取消</button>` : '';
                             html += `<div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;"><span class="vol-tag">${volInfo} ${subBadge}</span>${cancelBtn}</div>`;
                         });
                     } else {
