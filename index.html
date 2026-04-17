@@ -855,26 +855,30 @@
         const listDiv = document.getElementById('myScheduleList');
         listDiv.innerHTML = '';
         
+        // 1. 根據下拉選單精準過濾
         const filteredShifts = globalMyShifts.filter(shift => {
             if (filterVal === 'all') return true;
             return shift.actType === filterVal;
         });
 
+        // 若無資料則顯示提示
         if (filteredShifts.length === 0) {
             listDiv.innerHTML = '<p style="text-align:center; color:#666;">目前沒有符合的班表紀錄。</p>';
             return;
         }
 
+        // 2. 依照時間戳記精準排序 (確保不會因為文字切割錯誤而亂掉)
         filteredShifts.sort((a, b) => a.sortTime - b.sortTime);
 
         let lastDate = "";
         let dayBlock = null;
 
         filteredShifts.forEach(shift => {
-            // 【修復】確保 actDetails 絕對是字串，且使用完美的 niceDate，徹底避開覆蓋
+            // 3. 確保 actDetails 是字串，並優先使用後端傳來的乾淨日期 (niceDate)
             const shiftDetails = shift.actDetails ? String(shift.actDetails) : "";
             const shiftDate = shift.niceDate || shiftDetails.split(' ')[0];
             
+            // 4. 群組化：遇到新日期就建立一個新的日期區塊
             if (shiftDate !== lastDate) {
                 lastDate = shiftDate;
                 dayBlock = document.createElement('div');
@@ -883,34 +887,39 @@
                 listDiv.appendChild(dayBlock);
             }
 
+            // 狀態判定
             const isCanceled = (shift.status === '取消');
             const isSub = (shift.status === '徵求代班');
+            
+            // 5. 取得七彩標籤樣式
             const badge = getBadgeStyle(shift.actType);
             const badgeHtml = `<span style="background:${badge.bg}; color:${badge.color}; border: 1px solid ${badge.border}; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-right: 8px;">${shift.actType}</span>`;
 
+            // 6. 動作按鈕邏輯
             let actionBtn = '';
             if (shift.isDirectCancel && !isCanceled && !isSub) {
                 actionBtn = `<button class="btn-cancel" onclick="submitAskSubstitute('${shift.recordRow}', true)">❌ 直接取消排班</button>`;
-            } else if (!isCanceled && !isSub && !shift.actDetails.includes('[預約]')) {
+            } else if (!isCanceled && !isSub && !shiftDetails.includes('[預約]')) {
                 actionBtn = `<button class="btn-cancel" style="background-color: #ff9800;" onclick="submitAskSubstitute('${shift.recordRow}', false)">🆘 找人代班</button>`;
-            } else if (!isCanceled && !isSub && shift.actDetails.includes('[預約]')) {
+            } else if (!isCanceled && !isSub && shiftDetails.includes('[預約]')) {
                 actionBtn = `<button class="btn-cancel" style="background-color: #ff9800;" onclick="submitAskSubstitute('${shift.recordRow}', false)">🆘 預約任務找代班</button>`;
             } else if (isSub) {
                 actionBtn = `<button class="btn-cancel" style="background-color: #6c757d;" onclick="submitRetractSubstitute('${shift.recordRow}')">🔙 撤回代班請求</button>`;
             }
 
+            // 7. 建立卡片 UI
             const card = document.createElement('div');
             card.className = isCanceled ? 'activity-card canceled' : 'activity-card';
             
-            // 【修復】套用分類專屬顏色的邊框
-            card.style.borderLeftColor = isSub ? '#ff9800' : badge.color;
+            // 強制設定左側邊框顏色 (代班為橘色，否則為分類專屬色)
+            card.style.borderLeft = `5px solid ${isSub ? '#ff9800' : badge.color}`;
             
             card.innerHTML = `
                 <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
                     <div style="font-size: 14px; font-weight: bold; color: #555;">${badgeHtml} ${shift.bookTime ? `填班：${shift.bookTime}` : ''}</div>
                     <span class="status-badge ${isCanceled ? 'status-cancel' : (isSub ? 'status-sub' : 'status-normal')}">${shift.status}</span>
                 </div>
-                <div style="font-size: 16px; color: ${isCanceled ? '#999' : '#333'}; line-height: 1.5;">${shift.actDetails}</div>
+                <div style="font-size: 16px; color: ${isCanceled ? '#999' : '#333'}; line-height: 1.5;">${shiftDetails}</div>
                 ${actionBtn}
             `;
             dayBlock.appendChild(card);
@@ -973,7 +982,7 @@
         const listDiv = document.getElementById('calendarList');
         listDiv.innerHTML = '';
 
-        // 整理所有日期並排序
+        // 整理所有日期並排序 (使用正則抓出日期部分轉換為時間戳記，確保排序 100% 正確)
         const dates = Object.keys(globalCalendarData).sort((a, b) => {
             let da = new Date(a.match(/(?:\d{4}[\-\/])?\d{1,2}[\-\/]\d{1,2}/)?.[0]).getTime();
             let db = new Date(b.match(/(?:\d{4}[\-\/])?\d{1,2}[\-\/]\d{1,2}/)?.[0]).getTime();
@@ -983,12 +992,13 @@
         let hasAnyData = false;
 
         dates.forEach(date => {
-            // 【終極修復】：精準的月曆標籤過濾
+            // 精準的月曆標籤過濾
             const filteredActs = globalCalendarData[date].filter(act => {
                 if (filterVal === 'all') return true;
                 return act.actType === filterVal;
             });
 
+            // 如果這一天過濾後沒有任何活動，就跳過這一天
             if (filteredActs.length === 0) return;
             hasAnyData = true;
 
@@ -1000,11 +1010,12 @@
                 const actCard = document.createElement('div');
                 actCard.className = 'activity-card';
                 
+                // 取得七彩標籤樣式
                 const badge = getBadgeStyle(act.actType);
                 const badgeHtml = `<span style="background:${badge.bg}; color:${badge.color}; border: 1px solid ${badge.border}; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-right: 8px; vertical-align: middle;">${act.actType}</span>`;
 
-                // 【修復】讓總覽的卡片邊框顏色與標籤同步
-                actCard.style.borderLeftColor = act.isPreview ? '#ff9800' : badge.color;
+                // 讓總覽的卡片邊框顏色與標籤同步，若為預覽中則維持橘色
+                actCard.style.borderLeft = `5px solid ${act.isPreview ? '#ff9800' : badge.color}`;
 
                 let html = `<h4 style="margin:0 0 10px 0;">${badgeHtml} ${act.time ? act.time + ' ' : ''}${act.content}</h4>`;
                 
@@ -1018,9 +1029,16 @@
                         slot.vols.forEach(v => {
                             const isStaff = sessionStorage.getItem("userRole") === "staff";
                             let volInfo = v.name;
+                            
+                            // 館員專屬：顯示 LINE 暱稱與電話
                             if (isStaff) volInfo += ` <span style="font-size:12px; color:#666;">(${v.lineName} / ${v.phone})</span>`;
+                            
+                            // 代班標籤
                             let subBadge = v.isSub ? `<span class="vol-tag" style="background:#ff9800; color:white; border-color:#e68a00;">🆘 徵求代班</span>` : '';
+                            
+                            // 取消按鈕 (館員專屬，若該志工正在找代班則不顯示強制取消)
                             let cancelBtn = (isStaff && !v.isSub) ? `<button class="btn-sm" style="background:#dc3545; color:white; border:none; border-radius:3px; cursor:pointer;" onclick="openStaffModal('${v.recordRow}', '${v.name}', '${v.actDetails}')">取消</button>` : '';
+                            
                             html += `<div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;"><span class="vol-tag">${volInfo} ${subBadge}</span>${cancelBtn}</div>`;
                         });
                     } else {
