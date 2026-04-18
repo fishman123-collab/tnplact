@@ -562,7 +562,7 @@
                         <div class="activity-card" style="border-left-color: #ff5722;">
                             <h4 style="margin:0 0 10px 0;">${act.content}</h4>
                             <p class="meta-text">⏰ 時間：${act.date} ${act.time}</p>
-                            <button class="btn-book" style="background-color: #ff5722;" onclick="submitTakeSubstitute(${act.recordRow}, '${actDetails}')">🙋‍♂️ 協助代班</button>
+                            <button class="btn-book" style="background-color: #ff5722;" onclick="submitTakeSubstitute('${act.recordRow}', '${actDetails}')">🙋‍♂️ 協助代班</button>
                         </div>
                     `;
                 } else {
@@ -702,7 +702,7 @@ if (act.isSubCard) {
                 // 狀態覆蓋 (代班/預覽/額滿)
                 if (act.isSubCard) {
                     btnText = '🙋‍♂️ 協助代班'; btnColor = '#ff5722';
-                    onclickFn = `submitTakeSubstitute(${act.recordRow}, '${actDetails}')`; 
+                    onclickFn = `submitTakeSubstitute('${act.recordRow}', '${actDetails}')`; 
                 } else if (act.isPreview) {
                     btnDisabled = 'disabled'; btnText = `👀 預覽中 (${act.p1TimeStr} 開放)`; btnColor = '#ff9800';
                 } else if (isFull) {
@@ -913,11 +913,11 @@ function createScheduleCard(shift) {
 
     let btnHtml = '';
     if (shift.status === '徵求代班') {
-        btnHtml = `<button class="btn-book" style="background-color: #6c757d;" onclick="submitRetractSubstitute(${shift.recordRow}, '${shift.actDetails}')">🔙 撤回代班請求 (恢復值勤)</button>`;
+        btnHtml = `<button class="btn-book" style="background-color: #6c757d;" onclick="submitRetractSubstitute('${shift.recordRow}', '${shift.actDetails}')">🔙 撤回代班請求 (恢復值勤)</button>`;
     } else if (shift.isDirectCancel) {
-        btnHtml = `<button class="btn-book" style="background-color: #dc3545;" onclick="submitAskSubstitute(${shift.recordRow}, '${shift.actDetails}', true)">直接取消 (名額釋出)</button>`;
+        btnHtml = `<button class="btn-book" style="background-color: #dc3545;" onclick="submitAskSubstitute('${shift.recordRow}', '${shift.actDetails}', true)">直接取消 (名額釋出)</button>`;
     } else {
-        btnHtml = `<button class="btn-book" style="background-color: #ff9800;" onclick="submitAskSubstitute(${shift.recordRow}, '${shift.actDetails}', false)">我要請假 (徵求代班)</button>`;
+        btnHtml = `<button class="btn-book" style="background-color: #ff9800;" onclick="submitAskSubstitute('${shift.recordRow}', '${shift.actDetails}', false)">我要請假 (徵求代班)</button>`;
     }
 
     card.innerHTML = `
@@ -1050,10 +1050,10 @@ function createScheduleCard(shift) {
                             let statusText = v.isSub ? '🆘 (徵求代班)' : '✔️';
                             let bgColor = v.isSub ? '#dc3545' : '#e9ecef';
                             let textColor = v.isSub ? 'white' : '#333';
-                            tagsHtml += `<span class="vol-tag" style="background:${bgColor}; color:${textColor}; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="staffManageVol('${v.name}', '${v.phone}', '${v.lineName}', ${v.recordRow}, '${slot.actDetails}')">${statusText} ${v.name} ${slot.role}</span>`;
+                            tagsHtml += `<span class="vol-tag" style="background:${bgColor}; color:${textColor}; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="staffManageVol('${v.name}', '${v.phone}', '${v.lineName}', '${v.recordRow}', '${slot.actDetails}')">${statusText} ${v.name} ${slot.role}</span>`;
                         } else {
                             if (v.isSub) {
-                                tagsHtml += `<button class="btn-sm" style="background:#dc3545; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" onclick="submitTakeSubstitute(${v.recordRow}, '${slot.actDetails}')">🆘 ${v.name} 徵求代班 (點擊接手)</button>`;
+                                tagsHtml += `<button class="btn-sm" style="background:#dc3545; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" onclick="submitTakeSubstitute('${v.recordRow}', '${slot.actDetails}')">🆘 ${v.name} 徵求代班 (點擊接手)</button>`;
                             } else {
                                 tagsHtml += `<span class="vol-tag" style="background:#e9ecef; color:#333; padding:4px 10px; border-radius:15px; margin:2px 5px 2px 0;">✔️ ${v.name} ${slot.role}</span>`;
                             }
