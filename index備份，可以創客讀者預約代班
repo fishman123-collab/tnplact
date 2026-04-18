@@ -41,6 +41,14 @@
         .menu-title:hover { background: #495057; }
         .menu-content { display: none; padding: 15px 10px 5px 10px; background: #f8f9fa; border-radius: 0 0 5px 5px; border: 1px solid #ddd; border-top: none; }
         .filter-select { width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; background-color: #fff; font-weight: bold; color: #333; }
+    /* 讓卡片標題、內文與彈出視窗內容支援多行顯示 */
+.activity-card h4, 
+.activity-card h5, 
+.meta-text, 
+#staffModalContent {
+    white-space: pre-wrap; /* 自動處理換行符號與文字折行 */
+    line-height: 1.5;      /* 設定較舒適的行高 */
+}    
     </style>
 </head>
 <body>
@@ -752,8 +760,11 @@ if (act.isSubCard) {
 
     function submitTakeSubstitute(recordRow, actDetails) {
         const lineId = sessionStorage.getItem("volLineId"); const name = sessionStorage.getItem("volName");
-        if (confirm(`確定要接手這個代班嗎？\n(您的姓名將會取代原志工)\n\n📅 班次資訊：\n${actDetails}`)) {
-            showLoading();
+        // 【新增這行】
+    const cleanDetails = actDetails.replace(/<br>/g, '\n').replace(/<[^>]+>/g, '');
+    
+    if (confirm(`確定要接手這個代班嗎？\n(您的姓名將會取代原志工)\n\n📅 班次資訊：\n${cleanDetails}`)) { // <--- 這裡改用 cleanDetails
+        showLoading();
             fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "takeSubstitute", lineId: lineId, name: name, recordRow: recordRow }) })
             .then(res => res.json()).then(data => {
                 hideLoading();
@@ -930,9 +941,11 @@ function createScheduleCard(shift) {
 
     function submitAskSubstitute(recordRow, actDetails, isDirectCancel) {
         const lineId = sessionStorage.getItem("volLineId");
+        // 【新增這行】將換行符號還原，並過濾掉所有 HTML 標籤，讓彈出視窗乾淨
+    const cleanDetails = actDetails.replace(/<br>/g, '\n').replace(/<[^>]+>/g, '');
         let confirmMsg = isDirectCancel 
-            ? `確定要退出這個排班嗎？\n\n系統將自動判定：\n1. 若在第一階段排班期，將直接取消並釋出名額。\n2. 若已進入第二階段，則會轉為「徵求代班」狀態。\n\n📅 班次資訊：\n${actDetails}`
-            : `確定要取消這個排班嗎？\n\n將轉為「徵求代班狀態」\n\n📅 班次資訊：\n${actDetails}`;
+        ? `確定要退出這個排班嗎？\n\n系統將自動判定：\n1. 若在第一階段排班期，將直接取消並釋出名額。\n2. 若已進入第二階段，則會轉為「徵求代班」狀態。\n\n📅 班次資訊：\n${cleanDetails}`  // <--- 這裡改用 cleanDetails
+        : `確定要取消這個排班嗎？\n\n將轉為「徵求代班狀態」\n\n📅 班次資訊：\n${cleanDetails}`;  // <--- 這裡改用 cleanDetails
 
         if (confirm(confirmMsg)) {
             showLoading();
@@ -947,8 +960,11 @@ function createScheduleCard(shift) {
 
     function submitRetractSubstitute(recordRow, actDetails) {
         const lineId = sessionStorage.getItem("volLineId");
-        if (confirm(`確定要撤回代班請求嗎？\n(撤回後將恢復您的值勤狀態)\n\n${actDetails}`)) {
-            showLoading();
+        // 【新增這行】
+    const cleanDetails = actDetails.replace(/<br>/g, '\n').replace(/<[^>]+>/g, '');
+    
+    if (confirm(`確定要撤回代班請求嗎？\n(撤回後將恢復您的值勤狀態)\n\n${cleanDetails}`)) { // <--- 這裡改用 cleanDetails
+        showLoading();
             fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "retractSubstitute", lineId: lineId, recordRow: recordRow }) })
             .then(res => res.json()).then(data => {
                 hideLoading();
