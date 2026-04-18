@@ -920,9 +920,6 @@ function createScheduleCard(shift) {
         btnHtml = `<button class="btn-book" style="background-color: #ff9800;" onclick="submitAskSubstitute(${shift.recordRow}, '${shift.actDetails}', false)">我要請假 (徵求代班)</button>`;
     }
 
-    / 建立卡片內容前，先把字串中的代班標記過濾掉，讓志工看到的標題是乾淨的
-const cleanDetails = shift.actDetails.replace(" [徵求代班]", "");
-
     card.innerHTML = `
         <h4 style="margin:0 0 10px 0; font-size: 16px;">${shift.actDetails}</h4>
         <p class="meta-text" style="margin-bottom: 8px;">🔖 狀態：<span style="color: ${shift.status==='正常'?'green':'#ff4400'}; font-weight: bold;">${shift.status}</span></p>
