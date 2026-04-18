@@ -41,6 +41,14 @@
         .menu-title:hover { background: #495057; }
         .menu-content { display: none; padding: 15px 10px 5px 10px; background: #f8f9fa; border-radius: 0 0 5px 5px; border: 1px solid #ddd; border-top: none; }
         .filter-select { width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; background-color: #fff; font-weight: bold; color: #333; }
+    /* 讓卡片標題、內文與彈出視窗內容支援多行顯示 */
+.activity-card h4, 
+.activity-card h5, 
+.meta-text, 
+#staffModalContent {
+    white-space: pre-wrap; /* 自動處理換行符號與文字折行 */
+    line-height: 1.5;      /* 設定較舒適的行高 */
+}    
     </style>
 </head>
 <body>
