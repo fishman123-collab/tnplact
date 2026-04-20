@@ -1118,18 +1118,33 @@ function createScheduleCard(shift) {
     }
 
     let currentCancelData = null; 
-    function staffManageVol(volName, phone, lineName, recordRow, actDetails) {
-        const contentHtml = `
-            <b>姓名：</b> ${volName}<br>
-            <b>電話：</b> <a href="tel:${phone}" style="color: #008CBA; text-decoration: none; font-weight: bold;">${phone}</a><br>
-            <b>LINE名稱：</b> <span id="copyLineBtn" onclick="copyLineName('${lineName}')" style="color: #008CBA; cursor: pointer; font-weight: bold; background: #e9ecef; padding: 3px 10px; border-radius: 15px; display: inline-block; margin-top: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">@${lineName} 📋(點擊複製)</span><br><br>
-            <div style="font-size: 13px; color: #777; background: #f8f9fa; padding: 8px; border-radius: 5px;">
-                📅 <b>班次：</b><br>${actDetails}
+    function staffManageVol(name, phone, lineName, recordRow, actDetails) {
+        // 先建立資料物件
+        currentCancelData = { name: name, recordRow: recordRow, volName: name }; 
+        
+        // 抓取元素
+        const modal = document.getElementById('staffModal');
+        const contentArea = document.getElementById('staffModalContent');
+        
+        if (!modal || !contentArea) return;
+
+        // 組合內容
+        const content = `
+            <div style="text-align:left;">
+                <p><b>志工姓名：</b>${name}</p>
+                <p><b>聯絡電話：</b><a href="tel:${phone}">${phone}</a></p>
+                <p><b>LINE 名稱：</b>${lineName || '未提供'}</p>
+                <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
+                <p><b>班次/預約細節：</b></p>
+                <div style="background:#f8f9fa; padding:12px; border-radius:8px; font-size:14px; border:1px solid #eee; color:#333;">
+                    ${actDetails}
+                </div>
             </div>
         `;
-        document.getElementById('staffModalContent').innerHTML = contentHtml;
-        currentCancelData = { recordRow: recordRow, volName: volName };
-        document.getElementById('staffModal').style.display = 'flex';
+        
+        // 先塞入內容，再顯示視窗，確保渲染順序正確
+        contentArea.innerHTML = content;
+        modal.style.display = 'block';
     }
 
     function copyLineName(lineName) {
