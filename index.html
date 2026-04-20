@@ -1119,56 +1119,40 @@ function createScheduleCard(shift) {
 
     let currentCancelData = null; 
     function staffManageVol(name, phone, lineName, recordRow, actDetails) {
-        // 先建立資料物件
-        currentCancelData = { name: name, recordRow: recordRow, volName: name }; 
-        
-        // 抓取元素
+        currentCancelData = { name: name, recordRow: recordRow, volName: name };
         const modal = document.getElementById('staffModal');
         const contentArea = document.getElementById('staffModalContent');
         
-        if (!modal || !contentArea) return;
-
-        // 組合內容
-        const content = `
-            <div style="text-align:left;">
-                <p><b>志工姓名：</b>${name}</p>
-                <p><b>聯絡電話：</b><a href="tel:${phone}">${phone}</a></p>
-                <p><b>LINE 名稱：</b>${lineName || '未提供'}</p>
+        // 組合更直覺的管理介面
+        let content = `
+            <div style="text-align:left; line-height:1.8;">
+                <p><b>志工姓名：</b> <span style="font-size:18px;">${name}</span></p>
+                <p><b>聯絡電話：</b> <a href="tel:${phone}" style="color:#007bff; text-decoration:none;">${phone}</a></p>
+                <p><b>LINE 名稱：</b> 
+                   <span id="lineNameText" style="background:#f1f1f1; padding:2px 6px; border-radius:4px;">${lineName || '無'}</span>
+                   <button onclick="copyLineName('${lineName}')" style="margin-left:8px; font-size:12px; padding:2px 8px; cursor:pointer; background:#6c757d; color:white; border:none; border-radius:4px;">複製 Tag</button>
+                </p>
                 <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
-                <p><b>班次/預約細節：</b></p>
-                <div style="background:#f8f9fa; padding:12px; border-radius:8px; font-size:14px; border:1px solid #eee; color:#333;">
+                <p><b>📋 班次/預約細節：</b></p>
+                <div style="background:#f8f9fa; padding:12px; border-radius:8px; font-size:14px; border:1px solid #ddd; max-height:200px; overflow-y:auto;">
                     ${actDetails}
                 </div>
             </div>
         `;
-        
-        // 先塞入內容，再顯示視窗，確保渲染順序正確
         contentArea.innerHTML = content;
         modal.style.display = 'block';
     }
 
     function copyLineName(lineName) {
-        const textToCopy = "@" + lineName; 
-        const btn = document.getElementById('copyLineBtn');
-        const originalText = btn.innerHTML;
-
-        const textArea = document.createElement("textarea");
-        textArea.value = textToCopy;
-        textArea.style.position = "fixed";
-        textArea.style.opacity = "0";
-        document.body.appendChild(textArea);
-        textArea.select();
-        
-        try {
-            document.execCommand('copy');
-            btn.innerHTML = "✅ 已複製！可至群組貼上";
-            btn.style.color = "#155724"; btn.style.background = "#d4edda";
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-                btn.style.color = "#008CBA"; btn.style.background = "#e9ecef";
-            }, 2000);
-        } catch (err) { alert('您的裝置不支援自動複製，請手動輸入'); }
-        document.body.removeChild(textArea);
+        if (!lineName || lineName === 'undefined') { alert('無 LINE 名稱可複製'); return; }
+        const tag = "@" + lineName;
+        const tempInput = document.createElement("input");
+        document.body.appendChild(tempInput);
+        tempInput.value = tag;
+        tempInput.select();
+        document.execCommand("copy");
+        document.body.removeChild(tempInput);
+        alert("已複製: " + tag + " (可直接至群組貼上)");
     }
 
     function closeStaffModal() {
