@@ -1086,7 +1086,11 @@ function createScheduleCard(shift) {
                             let statusText = v.isSub ? '🆘 (徵求代班)' : '✔️';
                             let bgColor = v.isSub ? '#dc3545' : '#e9ecef';
                             let textColor = v.isSub ? 'white' : '#333';
-                            tagsHtml += `<span class="vol-tag" style="background:${bgColor}; color:${textColor}; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="staffManageVol('${v.name}', '${v.phone}', '${v.lineName}', '${v.recordRow}', '${slot.actDetails}')">${statusText} ${v.name} ${slot.role}</span>`;
+                            
+                            // 【關鍵修正】把單引號、雙引號進行安全逸出，避免破壞 HTML onclick 語法
+                            let safeDetails = slot.actDetails.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+
+                            tagsHtml += `<span class="vol-tag" style="background:${bgColor}; color:${textColor}; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="staffManageVol('${v.name}', '${v.phone}', '${v.lineName}', '${v.recordRow}', '${safeDetails}')">${statusText} ${v.name} ${slot.role}</span>`;
                         } else {
                             if (v.isSub) {
                                 tagsHtml += `<button class="btn-sm" style="background:#dc3545; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" onclick="submitTakeSubstitute('${v.recordRow}', '${slot.actDetails}')">🆘 ${v.name} 徵求代班 (點擊接手)</button>`;
