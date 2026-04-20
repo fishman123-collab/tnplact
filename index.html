@@ -230,16 +230,15 @@
         <div id="matchListContainer">讀取資料中...</div>
     </div>
    <div id="staffModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 99999; justify-content: center; align-items: center;">
-    <div style="background: white; padding: 20px; border-radius: 12px; width: 85%; max-width: 350px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+    <div style="background: white; padding: 15px 20px; border-radius: 12px; width: 85%; max-width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
         
-        <h3 style="margin: 0 0 10px 0; color: #333; border-bottom: 2px solid #00B900; padding-bottom: 10px; flex-shrink: 0;">👤 志工詳細資訊</h3>
-
-        <div id="staffModalContent" style="line-height: 1.8; color: #444; font-size: 15px; overflow-y: auto; flex-grow: 1; margin-bottom: 15px; padding-right: 5px;">
-        </div>
-
-        <div style="flex-shrink: 0;">
-            <button class="btn-book" style="background-color: #dc3545; width: 100%; margin-bottom: 10px; font-weight: bold; padding: 12px; border: none; color: white; border-radius: 5px;" onclick="executeStaffCancel()">⚠️ 強制取消此排班</button>
-            <button class="btn" style="background-color: #6c757d; width: 100%; display: block; margin: 0; font-weight: bold; padding: 12px; border: none; color: white; border-radius: 5px;" onclick="closeStaffModal()">🔙 關閉視窗</button>
+        <h3 style="margin: 0 0 10px 0; color: #333; border-bottom: 2px solid #00B900; padding-bottom: 8px; font-size: 18px;">👤 志工詳細資訊</h3>
+        
+        <div id="staffModalContent" style="line-height: 1.5; color: #444; font-size: 15px; margin-bottom: 15px;"></div>
+        
+        <div>
+            <button class="btn-book" style="background-color: #dc3545; width: 100%; margin-bottom: 8px; font-weight: bold; padding: 10px; border: none; color: white; border-radius: 5px;" onclick="executeStaffCancel()">⚠️ 強制取消此排班</button>
+            <button class="btn" style="background-color: #6c757d; width: 100%; display: block; margin: 0; font-weight: bold; padding: 10px; border: none; color: white; border-radius: 5px;" onclick="closeStaffModal()">🔙 關閉視窗</button>
         </div>
     </div>
 </div>
@@ -1126,28 +1125,27 @@ function createScheduleCard(shift) {
         const modal = document.getElementById('staffModal');
         const contentArea = document.getElementById('staffModalContent');
         
-        // 防呆：如果資料是空的，給予預設文字
         const safeName = name || '未提供';
         const safePhone = phone || '無資料';
         const safeLineName = lineName || '無';
 
         let content = `
             <div style="text-align:left;">
-                <p style="margin: 5px 0;"><b>志工姓名：</b> <span style="font-size:18px; color:#0056b3; font-weight:bold;">${safeName}</span></p>
-                <p style="margin: 5px 0;"><b>聯絡電話：</b> <a href="tel:${safePhone}" style="color:#28a745; text-decoration:none; font-weight:bold;">${safePhone}</a></p>
-                <p style="margin: 5px 0; display:flex; align-items:center;"><b>LINE 名稱：</b> 
+                <div style="margin-bottom: 8px;"><b>志工姓名：</b> <span style="font-size:18px; color:#0056b3; font-weight:bold;">${safeName}</span></div>
+                <div style="margin-bottom: 8px;"><b>聯絡電話：</b> <a href="tel:${safePhone}" style="color:#28a745; text-decoration:none; font-weight:bold;">${safePhone}</a></div>
+                <div style="margin-bottom: 8px; display:flex; align-items:center;"><b>LINE 名稱：</b> 
                    <span id="lineNameText" style="background:#f1f1f1; padding:2px 6px; border-radius:4px; margin: 0 8px;">${safeLineName}</span>
                    <button onclick="copyLineName('${safeLineName}')" style="font-size:12px; padding:4px 8px; cursor:pointer; background:#6c757d; color:white; border:none; border-radius:4px;">複製 Tag</button>
-                </p>
-                <hr style="border:0; border-top:1px dashed #ccc; margin:15px 0;">
-                <p style="margin: 0 0 5px 0;"><b>📋 班次/預約細節：</b></p>
-                <div style="background:#f8f9fa; padding:10px; border-radius:8px; font-size:14px; border:1px solid #ddd;">
+                </div>
+                <hr style="border:0; border-top:1px dashed #ccc; margin:10px 0;">
+                <div style="margin-bottom: 5px;"><b>📋 班次細節：</b></div>
+                <div style="background:#f8f9fa; padding:10px; border-radius:8px; font-size:14px; border:1px solid #ddd; max-height:150px; overflow-y:auto;">
                     ${actDetails}
                 </div>
             </div>
         `;
         contentArea.innerHTML = content;
-        modal.style.display = 'flex'; // 重要：使用 flex 配合外層設定，確保完美置中
+        modal.style.display = 'flex';
     }
 
     function copyLineName(lineName) {
@@ -1170,25 +1168,26 @@ function createScheduleCard(shift) {
     function executeStaffCancel() {
         if (!currentCancelData) return;
         
-        // 第一層確認
-        if (confirm(`⚠️ 確定要刪除 ${currentCancelData.name} 的這筆排班紀錄嗎？\n(刪除後名額將立即釋出)`)) {
-            // 第二層確認 (防止誤按)
-            if (confirm(`❗ 最後確認：此動作將「直接刪除」試算表資料，無法還原，確定執行？`)) {
-                closeStaffModal();
+        // 【修正】先將 recordRow 存起來，避免關閉視窗時資料被清空
+        const targetRow = currentCancelData.recordRow; 
+
+        if (confirm(`⚠️ 確定要刪除 ${currentCancelData.name} 的這筆排班紀錄嗎？\n(刪除/取消後名額將立即釋出)`)) {
+            if (confirm(`❗ 最後確認：確定執行取消作業？`)) {
+                closeStaffModal(); // 現在安全了，可以安心關閉視窗
                 showLoading();
                 fetch(GAS_URL, { 
                     method: 'POST', 
                     body: JSON.stringify({ 
                         action: "staffCancelShift", 
                         lineId: sessionStorage.getItem("volLineId"), 
-                        recordRow: currentCancelData.recordRow 
+                        recordRow: targetRow  // 使用已保存的行號
                     }) 
                 })
                 .then(res => res.json())
                 .then(data => {
                     hideLoading();
                     alert(data.message);
-                    location.reload(); // 刪除後自動重整以更新即時名額
+                    location.reload(); 
                 })
                 .catch(err => { hideLoading(); alert("連線失敗：" + err); });
             }
