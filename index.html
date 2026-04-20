@@ -1195,11 +1195,22 @@ function createScheduleCard(shift) {
             hideLoading();
             if (data.status === "success") {
                 alert("✅ 驗證成功！已成功綁定您的 LINE 帳號。");
-                // 驗證成功後，直接使用回傳的資料進入主系統
+                
+                // --- 【關鍵修正：恢復顯示系統主界面】 ---
+                
+                // 1. 隱藏驗證面板
                 document.getElementById('verifyPanel').style.display = "none";
+                
+                // 2. 恢復顯示狀態文字區與按鈕區域 (重要！)
                 document.getElementById('statusMessage').style.display = "block";
+                document.getElementById('buttonArea').style.display = "block"; 
+                
+                // 3. 更新歡迎文字
                 document.getElementById('statusMessage').innerText = `歡迎，${data.name}！`;
+                
+                // 4. 根據驗證回傳的資料，動態生成權限選單
                 showButtonsByRole(data);
+                
             } else {
                 alert(data.message);
             }
