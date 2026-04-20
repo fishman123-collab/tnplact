@@ -61,6 +61,14 @@
 <div class="container">
     <h2 style="text-align: center; color: #2c3e50;">志工排班系統</h2>
     <div id="statusMessage">系統載入中，請稍候...</div>
+
+    <div id="verifyPanel" class="panel" style="display: none; background: #fff3cd; border: 1px solid #ffeeba;">
+    <h3 style="margin-top: 0; color: #856404;">🔐 首次使用身分驗證</h3>
+    <p style="font-size: 14px; color: #856404;">系統在名冊中找不到您的 LINE ID。請輸入您留在圖書館名冊中的<b>連絡電話</b>進行綁定：</p>
+    <label>連絡電話：</label>
+    <input type="tel" id="verifyPhone" placeholder="例如：0912345678" style="font-size: 18px; text-align: center; letter-spacing: 2px;">
+    <button class="btn" style="display: block; background-color: #856404;" onclick="submitVerification()">進行身分驗證</button>
+</div>
     
     <div id="buttonArea">
         
@@ -267,9 +275,17 @@
         .then(data => {
             if (data.status === "success") {
                 document.getElementById('statusMessage').innerText = `歡迎，${data.name}！`;
+                document.getElementById('verifyPanel').style.display = "none"; // 隱藏驗證面板
                 showButtonsByRole(data); 
-            } else { document.getElementById('statusMessage').innerText = data.message; }
-        }).catch(error => { document.getElementById('statusMessage').innerText = "網路錯誤，無法連線至資料庫。"; });
+            } else if (data.status === "unregistered") {
+                // 【關鍵修改】找不到 ID 時，顯示驗證面板
+                document.getElementById('statusMessage').style.display = "none";
+                document.getElementById('buttonArea').style.display = "none";
+                document.getElementById('verifyPanel').style.display = "block";
+            } else { 
+                document.getElementById('statusMessage').innerText = data.message; 
+            }
+        }).catch(error => { document.getElementById('statusMessage').innerText = "網路錯誤，無法連線。"; });
     }
 
     function showButtonsByRole(userData) {
@@ -1161,6 +1177,44 @@ function createScheduleCard(shift) {
                 else { alert("⚠️ 失敗：" + data.message); }
             }).catch(err => { hideLoading(); alert("連線逾時，請確認網路狀態。"); });
         }
+    }
+
+    function submitVerification() {
+        const phone = document.getElementById('verifyPhone').value.trim();
+        const lineId = sessionStorage.getItem("volLineId");
+        
+        if (!phone) { alert("請輸入電話號碼！"); return; }
+        
+        showLoading();
+        fetch(GAS_URL, { 
+            method: 'POST', 
+            body: JSON.stringify({ action: "verifyVolunteer", lineId: lineId, phone: phone }) 
+        })
+        .then(res => res.json())
+        .then(data => {
+            hideLoading();
+            if (data.status === "success") {
+                alert("✅ 驗證成功！已成功綁定您的 LINE 帳號。");
+                
+                // --- 【關鍵修正：恢復顯示系統主界面】 ---
+                
+                // 1. 隱藏驗證面板
+                document.getElementById('verifyPanel').style.display = "none";
+                
+                // 2. 恢復顯示狀態文字區與按鈕區域 (重要！)
+                document.getElementById('statusMessage').style.display = "block";
+                document.getElementById('buttonArea').style.display = "block"; 
+                
+                // 3. 更新歡迎文字
+                document.getElementById('statusMessage').innerText = `歡迎，${data.name}！`;
+                
+                // 4. 根據驗證回傳的資料，動態生成權限選單
+                showButtonsByRole(data);
+                
+            } else {
+                alert(data.message);
+            }
+        }).catch(err => { hideLoading(); alert("連線逾時，請檢查網路。"); });
     }
 </script>
 
