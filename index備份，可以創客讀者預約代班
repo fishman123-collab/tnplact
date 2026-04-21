@@ -46,9 +46,11 @@
 .activity-card h5, 
 .meta-text, 
 #staffModalContent {
-    white-space: pre-wrap; /* 自動處理換行符號與文字折行 */
-    line-height: 1.5;      /* 設定較舒適的行高 */
-}    
+    white-space: pre-wrap; /* 支援 <br> 與換行 */
+    word-break: break-all;
+    font-size: 14.5px;
+    line-height: 1.6;
+}  
     </style>
 </head>
 <body>
@@ -227,14 +229,16 @@
 
         <div id="matchListContainer">讀取資料中...</div>
     </div>
-    <div id="staffModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;">
-
-    <div id="staffModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;">
-        <div style="background: white; padding: 20px; border-radius: 10px; width: 85%; max-width: 350px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
-            <h3 style="margin-top: 0; color: #333; border-bottom: 2px solid #00B900; padding-bottom: 10px;">👤 志工詳細資訊</h3>
-            <div id="staffModalContent" style="line-height: 1.8; color: #444; margin-bottom: 20px; font-size: 15px;"></div>
-            <button class="btn-book" style="background-color: #dc3545; margin-bottom: 12px; font-weight: bold;" onclick="executeStaffCancel()">⚠️ 強制取消此排班</button>
-            <button class="btn" style="background-color: #6c757d; display: block; margin: 0; font-weight: bold;" onclick="closeStaffModal()">關閉視窗</button>
+   <div id="staffModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 99999; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box;">
+    <div style="background: white; padding: 18px; border-radius: 12px; width: 100%; max-width: 320px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.3); box-sizing: border-box;">
+        
+        <h3 style="margin: 0 0 10px 0; color: #333; border-bottom: 2px solid #00B900; padding-bottom: 8px; font-size: 16px; flex-shrink: 0;">👤 志工詳細資訊</h3>
+        
+        <div id="staffModalContent" style="line-height: 1.4; color: #444; font-size: 14px; overflow-y: auto; margin-bottom: 12px; padding-right: 5px;"></div>
+        
+        <div style="flex-shrink: 0;">
+            <button class="btn-book" style="background-color: #dc3545; width: 100%; margin-bottom: 8px; font-weight: bold; padding: 10px; border: none; color: white; border-radius: 5px;" onclick="executeStaffCancel()">⚠️ 強制取消此排班</button>
+            <button class="btn" style="background-color: #6c757d; width: 100%; display: block; margin: 0; font-weight: bold; padding: 10px; border: none; color: white; border-radius: 5px;" onclick="closeStaffModal()">🔙 關閉視窗</button>
         </div>
     </div>
 </div>
@@ -1082,7 +1086,11 @@ function createScheduleCard(shift) {
                             let statusText = v.isSub ? '🆘 (徵求代班)' : '✔️';
                             let bgColor = v.isSub ? '#dc3545' : '#e9ecef';
                             let textColor = v.isSub ? 'white' : '#333';
-                            tagsHtml += `<span class="vol-tag" style="background:${bgColor}; color:${textColor}; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="staffManageVol('${v.name}', '${v.phone}', '${v.lineName}', '${v.recordRow}', '${slot.actDetails}')">${statusText} ${v.name} ${slot.role}</span>`;
+                            
+                            // 【關鍵修正】把單引號、雙引號進行安全逸出，避免破壞 HTML onclick 語法
+                            let safeDetails = slot.actDetails.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+
+                            tagsHtml += `<span class="vol-tag" style="background:${bgColor}; color:${textColor}; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="staffManageVol('${v.name}', '${v.phone}', '${v.lineName}', '${v.recordRow}', '${safeDetails}')">${statusText} ${v.name} ${slot.role}</span>`;
                         } else {
                             if (v.isSub) {
                                 tagsHtml += `<button class="btn-sm" style="background:#dc3545; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" onclick="submitTakeSubstitute('${v.recordRow}', '${slot.actDetails}')">🆘 ${v.name} 徵求代班 (點擊接手)</button>`;
@@ -1116,42 +1124,45 @@ function createScheduleCard(shift) {
     }
 
     let currentCancelData = null; 
-    function staffManageVol(volName, phone, lineName, recordRow, actDetails) {
-        const contentHtml = `
-            <b>姓名：</b> ${volName}<br>
-            <b>電話：</b> <a href="tel:${phone}" style="color: #008CBA; text-decoration: none; font-weight: bold;">${phone}</a><br>
-            <b>LINE名稱：</b> <span id="copyLineBtn" onclick="copyLineName('${lineName}')" style="color: #008CBA; cursor: pointer; font-weight: bold; background: #e9ecef; padding: 3px 10px; border-radius: 15px; display: inline-block; margin-top: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">@${lineName} 📋(點擊複製)</span><br><br>
-            <div style="font-size: 13px; color: #777; background: #f8f9fa; padding: 8px; border-radius: 5px;">
-                📅 <b>班次：</b><br>${actDetails}
+    function staffManageVol(name, phone, lineName, recordRow, actDetails) {
+        currentCancelData = { name: name, recordRow: recordRow, volName: name };
+        const modal = document.getElementById('staffModal');
+        const contentArea = document.getElementById('staffModalContent');
+        
+        const safeName = name || '未提供';
+        const safePhone = phone || '無資料';
+        const safeLineName = lineName || '無';
+
+        let content = `
+            <div style="display: flex; flex-direction: column; gap: 6px; text-align: left;">
+                <div><b>姓名：</b> <span style="font-size:16px; color:#0056b3; font-weight:bold;">${safeName}</span></div>
+                <div><b>電話：</b> <a href="tel:${safePhone}" style="color:#28a745; text-decoration:none; font-weight:bold;">${safePhone}</a></div>
+                <div style="display:flex; align-items:center; flex-wrap:wrap; gap:5px;">
+                   <b>LINE：</b> 
+                   <span id="lineNameText" style="background:#f1f1f1; padding:2px 6px; border-radius:4px;">${safeLineName}</span>
+                   <button onclick="copyLineName('${safeLineName}')" style="font-size:12px; padding:3px 8px; cursor:pointer; background:#6c757d; color:white; border:none; border-radius:4px;">複製Tag</button>
+                </div>
+                <hr style="border:0; border-top:1px dashed #ccc; margin: 4px 0; width: 100%;">
+                <div style="font-weight: bold; color: #555;">📋 班次細節：</div>
+                <div style="background:#f8f9fa; padding:8px; border-radius:6px; font-size:13px; border:1px solid #ddd; word-break: break-all;">
+                    ${actDetails}
+                </div>
             </div>
         `;
-        document.getElementById('staffModalContent').innerHTML = contentHtml;
-        currentCancelData = { recordRow: recordRow, volName: volName };
-        document.getElementById('staffModal').style.display = 'flex';
+        contentArea.innerHTML = content;
+        modal.style.display = 'flex';
     }
 
     function copyLineName(lineName) {
-        const textToCopy = "@" + lineName; 
-        const btn = document.getElementById('copyLineBtn');
-        const originalText = btn.innerHTML;
-
-        const textArea = document.createElement("textarea");
-        textArea.value = textToCopy;
-        textArea.style.position = "fixed";
-        textArea.style.opacity = "0";
-        document.body.appendChild(textArea);
-        textArea.select();
-        
-        try {
-            document.execCommand('copy');
-            btn.innerHTML = "✅ 已複製！可至群組貼上";
-            btn.style.color = "#155724"; btn.style.background = "#d4edda";
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-                btn.style.color = "#008CBA"; btn.style.background = "#e9ecef";
-            }, 2000);
-        } catch (err) { alert('您的裝置不支援自動複製，請手動輸入'); }
-        document.body.removeChild(textArea);
+        if (!lineName || lineName === 'undefined') { alert('無 LINE 名稱可複製'); return; }
+        const tag = "@" + lineName;
+        const tempInput = document.createElement("input");
+        document.body.appendChild(tempInput);
+        tempInput.value = tag;
+        tempInput.select();
+        document.execCommand("copy");
+        document.body.removeChild(tempInput);
+        alert("已複製: " + tag + " (可直接至群組貼上)");
     }
 
     function closeStaffModal() {
@@ -1161,21 +1172,30 @@ function createScheduleCard(shift) {
 
     function executeStaffCancel() {
         if (!currentCancelData) return;
-        const targetRow = currentCancelData.recordRow; 
         
-        if (confirm(`⚠️ 最終確認\n\n確定要將 ${currentCancelData.volName} 的排班強制取消並釋出名額嗎？`)) {
-            closeStaffModal(); 
-            showLoading(); 
-            
-            fetch(GAS_URL, { 
-                method: 'POST', 
-                body: JSON.stringify({ action: "staffCancelShift", lineId: sessionStorage.getItem("volLineId"), recordRow: targetRow }) 
-            })
-            .then(res => res.json()).then(data => {
-                hideLoading(); 
-                if (data.status === "success") { alert("✅ " + data.message); openCalendar(); } 
-                else { alert("⚠️ 失敗：" + data.message); }
-            }).catch(err => { hideLoading(); alert("連線逾時，請確認網路狀態。"); });
+        // 【修正】先將 recordRow 存起來，避免關閉視窗時資料被清空
+        const targetRow = currentCancelData.recordRow; 
+
+        if (confirm(`⚠️ 確定要刪除 ${currentCancelData.name} 的這筆排班紀錄嗎？\n(刪除/取消後名額將立即釋出)`)) {
+            if (confirm(`❗ 最後確認：確定執行取消作業？`)) {
+                closeStaffModal(); // 現在安全了，可以安心關閉視窗
+                showLoading();
+                fetch(GAS_URL, { 
+                    method: 'POST', 
+                    body: JSON.stringify({ 
+                        action: "staffCancelShift", 
+                        lineId: sessionStorage.getItem("volLineId"), 
+                        recordRow: targetRow  // 使用已保存的行號
+                    }) 
+                })
+                .then(res => res.json())
+                .then(data => {
+                    hideLoading();
+                    alert(data.message);
+                    location.reload(); 
+                })
+                .catch(err => { hideLoading(); alert("連線失敗：" + err); });
+            }
         }
     }
 
