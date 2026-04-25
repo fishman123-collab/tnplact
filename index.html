@@ -863,16 +863,24 @@ if (act.isSubCard) {
     function fetchMySchedule() {
         const listDiv = document.getElementById('myActivityList');
         listDiv.innerHTML = "資料載入中，請稍候...";
+        
+        const filterDropdown = document.getElementById('myScheduleFilter');
+        filterDropdown.disabled = true; // ⏳ 【新增】鎖定下拉選單
+        
         const lineId = sessionStorage.getItem("volLineId");
 
         fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getMySchedule", lineId: lineId }) })
         .then(res => res.json())
         .then(data => {
+            filterDropdown.disabled = false; // 🔓 【新增】解鎖下拉選單
             if (data.status === "success") {
                 globalMyShifts = data.data; // 存入全域變數
-                renderMySchedule(); // 呼叫無參數的 render，它會自動抓全域變數跟篩選器
+                renderMySchedule(); // 呼叫無參數的 render
             } else listDiv.innerHTML = "讀取失敗：" + data.message;
-        }).catch(err => { listDiv.innerHTML = "網路錯誤，無法讀取您的班表。"; });
+        }).catch(err => { 
+            filterDropdown.disabled = false; // 🔓 【新增】就算發生錯誤也要解鎖
+            listDiv.innerHTML = "網路錯誤，無法讀取您的班表。"; 
+        });
     }
 
     // 【升級】帶有前端類別篩選功能的 render
@@ -1002,7 +1010,10 @@ function createScheduleCard(shift) {
     function openCalendar() {
         document.getElementById('buttonArea').style.display = 'none';
         document.getElementById('calendarPanel').style.display = 'block';
-        document.getElementById('calendarFilter').value = 'all'; // 重置篩選器
+        
+        const filterDropdown = document.getElementById('calendarFilter');
+        filterDropdown.value = 'all'; // 重置篩選器
+        filterDropdown.disabled = true; // ⏳ 【新增】資料傳輸中，鎖定下拉選單，避免志工偷跑
         
         const listDiv = document.getElementById('calendarList');
         listDiv.innerHTML = "抓取班表中，請稍候...";
@@ -1011,12 +1022,16 @@ function createScheduleCard(shift) {
         fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getCalendarData", lineId: lineId }) })
         .then(res => res.json())
         .then(data => {
+            filterDropdown.disabled = false; // 🔓 【新增】資料抵達，解鎖下拉選單
             if (data.status === "success") {
                 globalCalendarData = data.data; // 存入全域變數
                 renderCalendar();
             }
             else listDiv.innerHTML = "讀取失敗：" + data.message;
-        }).catch(err => { listDiv.innerHTML = "網路錯誤。"; });
+        }).catch(err => { 
+            filterDropdown.disabled = false; // 🔓 【新增】就算發生錯誤也要解鎖
+            listDiv.innerHTML = "網路錯誤。"; 
+        });
     }
 
     // 【升級】帶有前端類別篩選功能的 render
