@@ -863,16 +863,24 @@ if (act.isSubCard) {
     function fetchMySchedule() {
         const listDiv = document.getElementById('myActivityList');
         listDiv.innerHTML = "資料載入中，請稍候...";
+        
+        const filterDropdown = document.getElementById('myScheduleFilter');
+        filterDropdown.disabled = true; // ⏳ 【新增】鎖定下拉選單
+        
         const lineId = sessionStorage.getItem("volLineId");
 
         fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getMySchedule", lineId: lineId }) })
         .then(res => res.json())
         .then(data => {
+            filterDropdown.disabled = false; // 🔓 【新增】解鎖下拉選單
             if (data.status === "success") {
                 globalMyShifts = data.data; // 存入全域變數
-                renderMySchedule(); // 呼叫無參數的 render，它會自動抓全域變數跟篩選器
+                renderMySchedule(); // 呼叫無參數的 render
             } else listDiv.innerHTML = "讀取失敗：" + data.message;
-        }).catch(err => { listDiv.innerHTML = "網路錯誤，無法讀取您的班表。"; });
+        }).catch(err => { 
+            filterDropdown.disabled = false; // 🔓 【新增】就算發生錯誤也要解鎖
+            listDiv.innerHTML = "網路錯誤，無法讀取您的班表。"; 
+        });
     }
 
     // 【升級】帶有前端類別篩選功能的 render
@@ -1002,7 +1010,10 @@ function createScheduleCard(shift) {
     function openCalendar() {
         document.getElementById('buttonArea').style.display = 'none';
         document.getElementById('calendarPanel').style.display = 'block';
-        document.getElementById('calendarFilter').value = 'all'; // 重置篩選器
+        
+        const filterDropdown = document.getElementById('calendarFilter');
+        filterDropdown.value = 'all'; // 重置篩選器
+        filterDropdown.disabled = true; // ⏳ 【新增】資料傳輸中，鎖定下拉選單，避免志工偷跑
         
         const listDiv = document.getElementById('calendarList');
         listDiv.innerHTML = "抓取班表中，請稍候...";
@@ -1011,12 +1022,16 @@ function createScheduleCard(shift) {
         fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getCalendarData", lineId: lineId }) })
         .then(res => res.json())
         .then(data => {
+            filterDropdown.disabled = false; // 🔓 【新增】資料抵達，解鎖下拉選單
             if (data.status === "success") {
                 globalCalendarData = data.data; // 存入全域變數
                 renderCalendar();
             }
             else listDiv.innerHTML = "讀取失敗：" + data.message;
-        }).catch(err => { listDiv.innerHTML = "網路錯誤。"; });
+        }).catch(err => { 
+            filterDropdown.disabled = false; // 🔓 【新增】就算發生錯誤也要解鎖
+            listDiv.innerHTML = "網路錯誤。"; 
+        });
     }
 
     // 【升級】帶有前端類別篩選功能的 render
@@ -1033,7 +1048,7 @@ function createScheduleCard(shift) {
 
         dates.forEach(date => {
             // 過濾該日期下的活動
-            // 【終極修復】精準的月曆標籤過濾
+            // 【終極修復】精準的月曆標籤過濾 + 依據時間先後排序
             const filteredActs = globalCalendarData[date].filter(act => {
                 if (filterVal === 'all') return true;
                 if (filterVal === '一般') return act.actType === '一般';
@@ -1044,6 +1059,14 @@ function createScheduleCard(shift) {
                 if (filterVal === '創客讀者預約') return act.actType === '創客讀者預約';
                 if (filterVal === '培訓') return act.actType === '培訓';
                 return true;
+            }).sort((a, b) => {
+                // 將時間字串 (如 9:30) 轉換為分鐘數，以便進行數字大小排序
+                function getMins(tStr) {
+                    if (!tStr) return 9999; // 沒時間的放最後面
+                    const m = tStr.match(/(\d{1,2}):(\d{2})/);
+                    return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : 9999;
+                }
+                return getMins(a.time) - getMins(b.time);
             });
 
             if (filteredActs.length === 0) return; // 這個日期如果沒有符合篩選的活動，就整天跳過
