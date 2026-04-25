@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>志工填班系統</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body { font-family: '微軟正黑體', sans-serif; padding: 20px; background-color: #f4f5f7; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .btn { display: none; width: 100%; padding: 15px; margin: 10px 0; background-color: #00B900; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; text-align: center; }
+        .btn-staff { background-color: #ff5722; }
+        #statusMessage { text-align: center; color: #666; margin-bottom: 20px; }
+        .panel { display: none; background: #e9ecef; padding: 15px; margin-top: 15px; border-radius: 8px; }
+        .panel label { display: block; font-weight: bold; color: #333; margin-top: 5px; }
+        .panel input { width: 100%; box-sizing: border-box; padding: 10px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 5px; }
+        .activity-card { background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #00B900; }
+        .activity-card.full { border-left-color: #dc3545; opacity: 0.7; }
+        .meta-text { color: #666; font-size: 14px; margin: 5px 0; }
+        .btn-book { background: #008CBA; padding: 10px; width: 100%; border: none; color: white; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        .btn-book:disabled { background: #ccc; cursor: not-allowed; }
+        .date-header { background: #343a40; color: white; padding: 8px 15px; border-radius: 5px; margin: 20px 0 10px 0; font-weight: bold; }
+        .vol-tag { display: inline-block; background: #e9ecef; color: #333; padding: 4px 10px; border-radius: 15px; font-size: 13px; margin: 2px 5px 2px 0; }
+        .btn-sm { font-family: '微軟正黑體'; font-size: 13px; }
+        
+        /* 讀取動畫遮罩樣式 */
+        #loadingOverlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6); z-index: 99999;
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+        .spinner {
+            border: 5px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top: 5px solid #ffffff;
+            width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* 折疊選單與下拉選單樣式 */
+        .menu-section { margin-bottom: 10px; display: none; } /* 預設隱藏，靠權限開啟 */
+        .menu-title { background: #343a40; color: white; padding: 15px; border-radius: 5px; cursor: pointer; font-weight: bold; text-align: left; width: 100%; border: none; font-size: 16px; display: flex; justify-content: space-between; }
+        .menu-title:hover { background: #495057; }
+        .menu-content { display: none; padding: 15px 10px 5px 10px; background: #f8f9fa; border-radius: 0 0 5px 5px; border: 1px solid #ddd; border-top: none; }
+        .filter-select { width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; background-color: #fff; font-weight: bold; color: #333; }
+    /* 讓卡片標題、內文與彈出視窗內容支援多行顯示 */
+.activity-card h4, 
+.activity-card h5, 
+.meta-text, 
+#staffModalContent {
+    white-space: pre-wrap; /* 支援 <br> 與換行 */
+    word-break: break-all;
+    font-size: 14.5px;
+    line-height: 1.6;
+}  
+    </style>
+</head>
+<body>
+
+<div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div style="color: white; font-size: 16px; font-weight: bold; letter-spacing: 1px;">資料處理中，請稍候...</div>
+</div>
+
+<div class="container">
+    <h2 style="text-align: center; color: #2c3e50;">志工排班系統</h2>
+    <div id="statusMessage">系統載入中，請稍候...</div>
+
+    <div id="verifyPanel" class="panel" style="display: none; background: #fff3cd; border: 1px solid #ffeeba;">
+    <h3 style="margin-top: 0; color: #856404;">🔐 首次使用身分驗證</h3>
+    <p style="font-size: 14px; color: #856404;">系統在名冊中找不到您的 LINE ID。請輸入您留在圖書館名冊中的<b>連絡電話</b>進行綁定：</p>
+    <label>連絡電話：</label>
+    <input type="tel" id="verifyPhone" placeholder="例如：0912345678" style="font-size: 18px; text-align: center; letter-spacing: 2px;">
+    <button class="btn" style="display: block; background-color: #856404;" onclick="submitVerification()">進行身分驗證</button>
+</div>
+    
+    <div id="buttonArea">
+        
+        <div class="menu-section" id="sec-activity">
+            <button class="menu-title" onclick="toggleMenu('menu-activity')"><span>📂 活動組 (一般/導覽)</span> <span>▾</span></button>
+            <div class="menu-content" id="menu-activity">
+                <button class="btn" style="display: block;" onclick="openBooking('一般')">📅 一般活動排班</button>
+                <button class="btn" style="background-color: #008CBA; display: block;" onclick="openBooking('導覽')">🚩 導覽活動排班</button>
+            </div>
+        </div>
+
+        <div class="menu-section" id="sec-story">
+            <button class="menu-title" onclick="toggleMenu('menu-story')"><span>🐸 故事組</span> <span>▾</span></button>
+            <div class="menu-content" id="menu-story">
+                <button class="btn" style="background-color: #ff9800; display: block;" onclick="openBooking('蛙寶')">🐸 蛙寶故事團排班</button>
+            </div>
+        </div>
+
+        <div class="menu-section" id="sec-fivesenses">
+            <button class="menu-title" onclick="toggleMenu('menu-fivesenses')"><span>✋ 五感探索區</span> <span>▾</span></button>
+            <div class="menu-content" id="menu-fivesenses">
+                <button class="btn" style="background-color: #e83e8c; display: block;" onclick="openBooking('五感')">✋ 五感探索區排班</button>
+            </div>
+        </div>
+
+        <div class="menu-section" id="sec-maker">
+            <button class="menu-title" onclick="toggleMenu('menu-maker')"><span>🛠️ 創客空間 (課程/媒合/培訓)</span> <span>▾</span></button>
+            <div class="menu-content" id="menu-maker">
+                <button class="btn" style="background-color: #ff5722; display: block;" onclick="openMakerMatch()">🤝 創客讀者預約媒合看板</button>
+                <button class="btn" style="background-color: #28a745; display: block;" onclick="openBooking('創客課程')">👨‍🏫 創客課程排班 (講師/助教)</button>
+                <button class="btn" style="background-color: #17a2b8; display: block;" onclick="openBooking('培訓')">📖 培訓活動報名</button>                
+            </div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #ddd; margin: 20px 0;">
+
+        <button id="btn-calendar-view" class="btn" style="background-color: #8e44ad;" onclick="openCalendar()">🗓️ 班表總覽 (看誰值班)</button>
+        <button id="btn-my-schedule" class="btn">👤 個人儀表板 (我的班表)</button>
+        <button id="btn-staff-manage" class="btn btn-staff">⚙️ 排班時間設定</button>
+    </div>
+
+    <div id="staffPanel" class="panel">
+        <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="document.getElementById('staffPanel').style.display='none'">🔙 關閉設定</button>
+        <h3 style="margin-top:0;">⚙️ 各組排班時間獨立設定</h3>
+
+        <div class="menu-section" style="display:block;">
+            <button class="menu-title" onclick="toggleMenu('staff-gen')"><span>📅 一般活動 設定</span> <span>▾</span></button>
+            <div class="menu-content" id="staff-gen">
+                <label>開放月份：</label><input type="month" id="gen_m">
+                <label>預覽時間：</label><input type="datetime-local" id="gen_prev">
+                <label>第一階段 (限1班)：</label><input type="datetime-local" id="gen_p1">
+                <label>第二階段 (無限制)：</label><input type="datetime-local" id="gen_p2">
+            </div>
+        </div>
+
+        <div class="menu-section" style="display:block;">
+            <button class="menu-title" onclick="toggleMenu('staff-frog')"><span>🐸 蛙寶故事團 設定</span> <span>▾</span></button>
+            <div class="menu-content" id="staff-frog" style="display:none;">
+                <label>開放月份：</label><input type="month" id="frog_m">
+                <label>預覽時間：</label><input type="datetime-local" id="frog_prev">
+                <label>第一階段 (限1班)：</label><input type="datetime-local" id="frog_p1">
+                <label>第二階段 (無限制)：</label><input type="datetime-local" id="frog_p2">
+            </div>
+        </div>
+
+        <div class="menu-section" style="display:block;">
+            <button class="menu-title" onclick="toggleMenu('staff-sense')"><span>✋ 五感探索區 設定</span> <span>▾</span></button>
+            <div class="menu-content" id="staff-sense" style="display:none;">
+                <label>開放月份：</label><input type="month" id="sense_m">
+                <label>預覽時間：</label><input type="datetime-local" id="sense_prev">
+                <label>第一階段 (限3班)：</label><input type="datetime-local" id="sense_p1">
+                <label>第二階段 (累計限6班)：</label><input type="datetime-local" id="sense_p2">
+                <label>第三階段 (無限制)：</label><input type="datetime-local" id="sense_p3">
+            </div>
+        </div>
+
+        <div class="menu-section" style="display:block;">
+            <button class="menu-title" onclick="toggleMenu('staff-maker')"><span>🛠️ 創客空間 設定</span> <span>▾</span></button>
+            <div class="menu-content" id="staff-maker" style="display:none;">
+                <h4 style="color:#28a745; margin-top:0;">👨‍🏫 創客課程</h4>
+                <label>開放月份：</label><input type="month" id="maker_m">
+                <label>預覽時間：</label><input type="datetime-local" id="maker_prev">
+                <label>第一階段 (限1班/助教限專長)：</label><input type="datetime-local" id="maker_p1">
+                <label>第二階段 (無限制/助教不限專長)：</label><input type="datetime-local" id="maker_p2">
+
+                <hr style="border-top:1px dashed #ccc; margin:15px 0;">
+                <h4 style="color:#17a2b8; margin-top:0;">📖 培訓活動</h4>
+                <label>開放月份：</label><input type="month" id="train_m">
+                <label>預覽時間：</label><input type="datetime-local" id="train_prev">
+                <label>第一階段 (種子+專長+0受訓)：</label><input type="datetime-local" id="train_p1">
+                <label>第二階段 (值班/種子+專長+0受訓)：</label><input type="datetime-local" id="train_p2">
+                <label>第三階段 (不分專長+0受訓)：</label><input type="datetime-local" id="train_p3">
+                <label>第四階段 (全面開放)：</label><input type="datetime-local" id="train_p4">
+            </div>
+        </div>
+
+        <button class="btn btn-staff" onclick="saveParams()" style="display: block; margin-top: 15px;">💾 儲存所有設定</button>
+        <p id="saveMsg" style="color: red; font-size: 14px;"></p>
+    </div>
+
+    <div id="masterPanel" class="panel" style="background: transparent; padding: 0;">
+        <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackToMain()">🔙 返回主選單</button>
+        <h3 id="panelTitle" style="text-align: center; color: #333; margin-bottom: 20px;">📅 可填班班表</h3>
+        
+        <div id="senseAlertBanner" style="display: none; background: #fff3cd; border-left: 5px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+            <h4 style="margin: 0 0 8px 0; color: #856404; display: flex; align-items: center; gap: 6px;">⚠️ 五感探索區 值班重要提醒</h4>
+            <ul style="margin: 0; padding-left: 20px; color: #533f03; font-size: 14.5px; line-height: 1.6;">
+                <li>入區請務必<b>「穿著襪子」</b>，以維護環境衛生。</li>
+                <li>為感謝您的辛勞，<b>星期六、日</b>值班之時數，將以 <b>1.5 倍</b> 計算！</li>
+            </ul>
+        </div>
+
+        <div id="activityList">讀取清單中...</div>
+    </div>
+
+    <div id="myPanel" class="panel" style="background: transparent; padding: 0;">
+        <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackToMain()">🔙 返回主選單</button>
+        <h3>👤 我的班表 (已填班)</h3>
+        
+        <select id="myScheduleFilter" class="filter-select" onchange="renderMySchedule()">
+            </select>
+
+        <div id="myActivityList">讀取清單中...</div>
+    </div>
+
+    <div id="calendarPanel" class="panel" style="background: transparent; padding: 0;">
+        <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackToMain()">🔙 返回主選單</button>
+        <h3>🗓️ 班表總覽</h3>
+        <p style="text-align:center; color:#666; font-size:14px;">(顯示本月起的所有班表與排班人員)</p>
+        
+        <select id="calendarFilter" class="filter-select" onchange="renderCalendar()">
+            </select>
+
+        <div id="calendarList">讀取中...</div>
+    </div>
+
+    <div id="makerMatchPanel" class="panel" style="background: transparent; padding: 0;">
+        <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackToMain()">🔙 返回主選單</button>
+        <h3 style="color: #d35400; display: flex; align-items: center; justify-content: center; gap: 8px;">🤝 創客預約媒合</h3>
+        
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+            <button id="tab-pending" class="btn" style="display: block; margin: 0; padding: 10px; font-size: 14px; background-color: #d35400;" onclick="switchMatchTab('pending')">🆕 待認領</button>
+            <button id="tab-myclaims" class="btn" style="display: block; margin: 0; padding: 10px; font-size: 14px; background-color: #6c757d;" onclick="switchMatchTab('myclaims')">🙋‍♂️ 我的班表</button>
+            <button id="tab-allclaims" class="btn" style="display: block; margin: 0; padding: 10px; font-size: 14px; background-color: #6c757d;" onclick="switchMatchTab('allclaims')">🗓️ 總班表</button>
+        </div>
+
+        <div id="historyToggleArea" style="display: none; background: #fff; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center; border: 1px solid #ddd;">
+            <div style="display: flex; justify-content: center; gap: 30px; align-items: center;">
+                <label style="display: inline-flex; align-items: center; font-weight: bold; cursor: pointer; color: #198754; margin: 0;">
+                    <input type="radio" name="historyToggle" value="future" checked onchange="renderMatchCards()" style="width: auto; margin: 0 8px 0 0;"> 🟢 未來任務
+                </label>
+                <label style="display: inline-flex; align-items: center; font-weight: bold; cursor: pointer; color: #6c757d; margin: 0;">
+                    <input type="radio" name="historyToggle" value="history" onchange="renderMatchCards()" style="width: auto; margin: 0 8px 0 0;"> ⚪ 歷史紀錄
+                </label>
+            </div>
+        </div>
+
+        <div id="matchListContainer">讀取資料中...</div>
+    </div>
+   <div id="staffModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 99999; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box;">
+    <div style="background: white; padding: 18px; border-radius: 12px; width: 100%; max-width: 320px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.3); box-sizing: border-box;">
+        
+        <h3 style="margin: 0 0 10px 0; color: #333; border-bottom: 2px solid #00B900; padding-bottom: 8px; font-size: 16px; flex-shrink: 0;">👤 志工詳細資訊</h3>
+        
+        <div id="staffModalContent" style="line-height: 1.4; color: #444; font-size: 14px; overflow-y: auto; margin-bottom: 12px; padding-right: 5px;"></div>
+        
+        <div style="flex-shrink: 0;">
+            <button class="btn-book" style="background-color: #dc3545; width: 100%; margin-bottom: 8px; font-weight: bold; padding: 10px; border: none; color: white; border-radius: 5px;" onclick="executeStaffCancel()">⚠️ 強制取消此排班</button>
+            <button class="btn" style="background-color: #6c757d; width: 100%; display: block; margin: 0; font-weight: bold; padding: 10px; border: none; color: white; border-radius: 5px;" onclick="closeStaffModal()">🔙 關閉視窗</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ======== 請替換以下兩個網址/ID ========
+    const LIFF_ID = "2008914129-kU6EacB0"; 
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxAxfitZSSedHZCmix-gjdS8Z1kOJvcvT5BQA9JEqmHUZuppfMRuFn7bwQZtVppKVIa/exec"; 
+    // ========================================
+
+    // 儲存從 GAS 抓回來的原始資料，供前端篩選用
+    let globalMyShifts = [];
+    let globalCalendarData = {};
+
+    function showLoading() { document.getElementById('loadingOverlay').style.display = 'flex'; }
+    function hideLoading() { document.getElementById('loadingOverlay').style.display = 'none'; }
+
+    // 折疊選單切換
+    function toggleMenu(id) {
+        const content = document.getElementById(id);
+        content.style.display = (content.style.display === 'block') ? 'none' : 'block';
+    }
+
+    window.onload = function() {
+        liff.init({ liffId: LIFF_ID })
+            .then(() => {
+                if (!liff.isLoggedIn()) liff.login(); 
+                else liff.getProfile().then(profile => { checkUserRole(profile.userId); });
+            })
+            .catch(err => { document.getElementById('statusMessage').innerText = "LIFF 初始化失敗：" + err.message; });
+    };
+
+    function checkUserRole(lineId) {
+        sessionStorage.setItem("volLineId", lineId);
+        document.getElementById('statusMessage').innerText = "驗證身分與權限中...";
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "checkLogin", lineId: lineId }) })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                document.getElementById('statusMessage').innerText = `歡迎，${data.name}！`;
+                document.getElementById('verifyPanel').style.display = "none"; // 隱藏驗證面板
+                showButtonsByRole(data); 
+            } else if (data.status === "unregistered") {
+                // 【關鍵修改】找不到 ID 時，顯示驗證面板
+                document.getElementById('statusMessage').style.display = "none";
+                document.getElementById('buttonArea').style.display = "none";
+                document.getElementById('verifyPanel').style.display = "block";
+            } else { 
+                document.getElementById('statusMessage').innerText = data.message; 
+            }
+        }).catch(error => { document.getElementById('statusMessage').innerText = "網路錯誤，無法連線。"; });
+    }
+
+    function showButtonsByRole(userData) {
+        sessionStorage.setItem("userRole", userData.role); 
+        
+        // 準備用來裝下拉選單選項的字串
+        let filterOptions = `<option value="all">📂 顯示全部授權類別</option>`;
+        
+        if (userData.role === "staff") {
+            // 館員：全部開啟，且下拉選單擁有所有選項
+            document.getElementById('sec-activity').style.display = "block";
+            document.getElementById('sec-story').style.display = "block";
+            document.getElementById('sec-fivesenses').style.display = "block";
+            document.getElementById('sec-maker').style.display = "block";
+            document.getElementById('btn-calendar-view').style.display = "block";
+            if (userData.canEditTime) document.getElementById('btn-staff-manage').style.display = "block";
+
+            filterOptions += `
+                <option value="一般">📅 一般活動</option>
+                <option value="導覽">🚩 導覽活動</option>
+                <option value="蛙寶">🐸 蛙寶故事團</option>
+                <option value="五感">✋ 五感探索</option>
+                <option value="創客課程">👨‍🏫 創客課程</option>
+                <option value="創客讀者預約">🤝 創客讀者預約</option>
+                <option value="培訓">📖 培訓活動</option>
+            `;
+        } else if (userData.role === "volunteer") {
+            // 志工：根據組別與兼任判斷顯示哪些區塊，並動態加入下拉選單
+            const groupsStr = (userData.group + "," + (userData.concurrent || "")).replace(/\s/g, '');
+            
+            if (groupsStr.includes('活動組')) {
+                document.getElementById('sec-activity').style.display = "block";
+                filterOptions += `<option value="一般">📅 一般活動</option><option value="導覽">🚩 導覽活動</option>`;
+            }
+            if (groupsStr.includes('故事') || groupsStr.includes('蛙寶')) {
+                document.getElementById('sec-story').style.display = "block";
+                filterOptions += `<option value="蛙寶">🐸 蛙寶故事團</option>`;
+            }
+            if (groupsStr.includes('五感')) {
+                document.getElementById('sec-fivesenses').style.display = "block";
+                filterOptions += `<option value="五感">✋ 五感探索</option>`;
+            }
+            if (groupsStr.includes('創客')) {
+                document.getElementById('sec-maker').style.display = "block";
+                filterOptions += `<option value="創客讀者預約">🤝 創客讀者預約</option><option value="創客課程">👨‍🏫 創客課程</option><option value="培訓">📖 培訓活動</option>`;
+            }
+            
+            document.getElementById('btn-calendar-view').style.display = "block";
+            document.getElementById('btn-my-schedule').style.display = "block";
+            
+            sessionStorage.setItem("volGroup", groupsStr);
+            sessionStorage.setItem("volName", userData.name);
+            // 更新：存儲三種創客專長
+            sessionStorage.setItem("volDutySkills", userData.dutySkills || "");
+            sessionStorage.setItem("volSeedSkills", userData.seedSkills || "");
+            sessionStorage.setItem("volInstructorSkills", userData.instructorSkills || "");
+            // 【新增】儲存今年受訓次數
+            sessionStorage.setItem("volTrainedCount", userData.trainedCount || "0");
+        }
+
+        // 將產生好的選項，寫入兩個下拉式選單中
+        document.getElementById('myScheduleFilter').innerHTML = filterOptions;
+        document.getElementById('calendarFilter').innerHTML = filterOptions;
+    }
+
+    function goBackToMain() {
+        document.getElementById('masterPanel').style.display = 'none';
+        document.getElementById('myPanel').style.display = 'none';
+        document.getElementById('calendarPanel').style.display = 'none';
+        document.getElementById('makerMatchPanel').style.display = 'none'; // 【新增這一行】
+        document.getElementById('buttonArea').style.display = 'block';
+    }
+
+    let currentBookingType = '一般';
+    function openBooking(type) {
+        currentBookingType = type;
+        document.getElementById('buttonArea').style.display = 'none';
+        document.getElementById('masterPanel').style.display = 'block';
+        document.getElementById('panelTitle').innerText = `📋 ${type}排班系統`;
+        
+        // 精準控制：如果是五感，就把警告橫幅打開
+        const banner = document.getElementById('senseAlertBanner');
+        if (banner) {
+            banner.style.display = (type === '五感') ? 'block' : 'none';
+        }
+        
+        fetchActivities();
+    }
+
+    let currentMatchData = { pending: [], myClaims: [], allClaims: [] };
+    let currentMatchTab = 'pending';
+
+    function openMakerMatch() {
+        document.getElementById('buttonArea').style.display = 'none';
+        document.getElementById('makerMatchPanel').style.display = 'block';
+        fetchMakerMatches();
+    }
+
+    function fetchMakerMatches() {
+        const listDiv = document.getElementById('matchListContainer');
+        listDiv.innerHTML = "資料載入中，請稍候...";
+        const lineId = sessionStorage.getItem("volLineId");
+
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getMakerMatches", lineId: lineId }) })
+        .then(res => res.json()).then(data => {
+            if (data.status === "success") {
+                currentMatchData = data.data;
+                switchMatchTab('pending');
+            } else { listDiv.innerHTML = "讀取失敗：" + data.message; }
+        }).catch(err => { listDiv.innerHTML = "網路連線錯誤。"; });
+    }
+
+    function switchMatchTab(tabName) {
+        currentMatchTab = tabName;
+        document.getElementById('tab-pending').style.backgroundColor = (tabName === 'pending') ? '#d35400' : '#6c757d';
+        document.getElementById('tab-myclaims').style.backgroundColor = (tabName === 'myclaims') ? '#d35400' : '#6c757d';
+        document.getElementById('tab-allclaims').style.backgroundColor = (tabName === 'allclaims') ? '#d35400' : '#6c757d';
+        
+        // 【修改】當選擇「我的認領」或「總班表」時，都顯示未來/歷史切換開關，並預設切換回「未來」
+        const historyArea = document.getElementById('historyToggleArea');
+        if (tabName === 'myclaims' || tabName === 'allclaims') {
+            historyArea.style.display = 'block';
+            document.querySelector('input[name="historyToggle"][value="future"]').checked = true; // 預設顯示未來
+        } else {
+            historyArea.style.display = 'none';
+        }
+        
+        renderMatchCards();
+    }
+
+    function renderMatchCards() {
+        const listDiv = document.getElementById('matchListContainer');
+        listDiv.innerHTML = "";
+        
+        let dataList = [];
+        if (currentMatchTab === 'pending') dataList = currentMatchData.pending;
+        else if (currentMatchTab === 'myclaims') dataList = currentMatchData.myClaims;
+        else dataList = currentMatchData.allClaims;
+
+        // 【修改】如果是「我的認領」或「總班表」，進行未來/歷史篩選
+        if (currentMatchTab === 'myclaims' || currentMatchTab === 'allclaims') {
+            const showFuture = document.querySelector('input[name="historyToggle"]:checked').value === 'future';
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            dataList = dataList.filter(item => {
+                let itemDate = new Date(item.approvedDate || item.date); // 優先用核准時間判斷
+                if (isNaN(itemDate.getTime())) return showFuture; // 無法解析預設放未來
+                return showFuture ? (itemDate >= today) : (itemDate < today);
+            });
+            
+            // 將過濾後的資料，依據日期排序 (未來的由近到遠，歷史的由近到遠)
+            dataList.sort((a, b) => {
+                let da = new Date(a.approvedDate || a.date).getTime();
+                let db = new Date(b.approvedDate || b.date).getTime();
+                if (isNaN(da)) da = 9999999999999; if (isNaN(db)) db = 9999999999999;
+                return showFuture ? (da - db) : (db - da); // 歷史紀錄反向排序
+            });
+        }
+
+        if (dataList.length === 0) {
+            listDiv.innerHTML = "<div style='text-align:center; padding:20px; color:#666;'>目前沒有符合條件的紀錄喔！</div>";
+            return;
+        }
+
+        dataList.forEach(item => {
+            let slotsHtml = '';
+            let assignedHtml = '';
+
+            // 待認領區：顯示可選擇的時段按鈕
+            if (currentMatchTab === 'pending') {
+                slotsHtml += `<div style="font-size: 13px; color: #666; margin-bottom: 8px; font-weight:bold;">👉 請選擇您可配合的時段認領：</div>`;
+                item.slots.forEach(s => {
+                    if (s.d) {
+                        slotsHtml += `
+                        <div style="border: 1px solid #fbd38d; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: #fffaf0;">
+                            <div>
+                                <span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 5px; font-size: 12px; margin-right: 8px;">${s.type}</span>
+                                <span style="font-weight: bold; color: #0056b3; font-size: 14px;">${s.d} ${s.t}</span>
+                            </div>
+                            <button class="btn-sm" style="background: #008CBA; color: white; border: none; border-radius: 5px; padding: 6px 12px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="submitMakerClaim(${item.rowId}, '${s.d}', '${s.t}', '${item.device}')">認領此時段</button>
+                        </div>`;
+                    }
+                });
+            } else {
+                // 已認領/總班表區：顯示確定的時段與志工 (修改為靠左緊湊排列)
+                assignedHtml = `
+                <div style="border: 1px solid #c3e6cb; border-radius: 8px; padding: 12px; background: #d4edda; color: #155724; display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
+                    <div style="display:flex; align-items: center; gap: 10px;">
+                        <span style="font-weight: bold; font-size: 13px;">✔️ 核准時段：</span>
+                        <span style="font-weight: bold; font-size: 15px; color: #0f5132;">${item.approvedDate} ${item.approvedTime}</span>
+                    </div>
+                    <div style="display:flex; align-items: center; gap: 10px; border-top: 1px dashed #b1dfbb; padding-top: 8px;">
+                        <span style="font-weight: bold; font-size: 13px;">🙋‍♂️ 值班志工：</span>
+                        <span style="font-weight: bold; font-size: 15px; color: #0f5132;">${item.assignedVol}</span>
+                    </div>
+                </div>`;
+            }
+
+            // 【修改】決定是否要顯示「最晚回覆」欄位
+            // 若為「待認領」則顯示紅色警告，若是「我的認領」或「總班表」則直接隱藏！
+            let deadlineHtml = '';
+            if (currentMatchTab === 'pending' && item.deadline) {
+                deadlineHtml = `⏳ <b style="color: #dc3545;">最晚回覆：${item.deadline}</b>`;
+            }
+
+            const card = document.createElement('div');
+            card.style = `border: 1px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);`;
+            
+            card.innerHTML = `
+                <div style="position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; min-height: 24px;">
+                    <span style="position: absolute; left: 0; background: #212529; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px; font-weight: bold;">${item.id || '無編號'}</span>
+                    <span style="font-weight: bold; color: #111; font-size: 19px; letter-spacing: 1px;">👤 ${item.readerName}</span>
+                </div>
+                <div style="text-align: center; margin-bottom: 12px;">
+                    <span style="background: #198754; color: white; padding: 4px 12px; border-radius: 5px; font-size: 13px; font-weight: bold;">${item.volReq || '未註明需求'}</span>
+                </div>
+                <h4 style="margin: 0 0 12px 0; color: #333; font-size: 17px; text-align: center;">✂️ ${item.device}</h4>
+                
+                <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; font-size: 14px; color: #555; line-height: 1.8; margin-bottom: 15px; border: 1px solid #eee;">
+                    👥 <b>讀者：</b>${item.age} 歲 <span style="margin-left: 10px;"><b>陪同：</b>${item.companions || '無'}</span><br>
+                    🪑 <b>作品：</b>${item.projectDesc || '未填寫'}<br>
+                    📦 <b>耗材：</b>${item.materials || '無'}<br>
+                    ${deadlineHtml} </div>
+                ${slotsHtml}
+                ${assignedHtml}
+            `;
+            listDiv.appendChild(card);
+        });
+    }
+
+    function submitMakerClaim(rowId, selDate, selTime, device) {
+        const lineId = sessionStorage.getItem("volLineId");
+        const name = sessionStorage.getItem("volName");
+        
+        // 使用原生 confirm，但文字乾淨俐落，無 \n 雜亂問題
+        if (confirm(`最終確認：\n\n您確定要認領此任務嗎？\n\n📌 設備：${device}\n📅 時段：${selDate} ${selTime}`)) {
+            showLoading();
+            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "claimMakerTask", lineId: lineId, name: name, rowId: rowId, selDate: selDate, selTime: selTime }) })
+            .then(res => res.json()).then(data => {
+                hideLoading();
+                if (data.status === "success") { alert(data.message); fetchMakerMatches(); } 
+                else { alert("⚠️ 認領失敗：\n" + data.message); fetchMakerMatches(); }
+            }).catch(err => { hideLoading(); alert("連線逾時。"); });
+        }
+    }
+
+    function fetchActivities() {
+        const listDiv = document.getElementById('activityList');
+        listDiv.innerHTML = "資料載入中，請稍候...";
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getActivities" }) })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "success") renderActivities(data.data);
+            else listDiv.innerHTML = "讀取失敗：" + data.message;
+        }).catch(err => { listDiv.innerHTML = "網路錯誤，無法讀取班表。"; });
+    }
+
+   function renderActivities(activities) {
+        const listDiv = document.getElementById('activityList');
+        listDiv.innerHTML = '';
+        let hasActivities = false;
+
+        // ==========================================
+        // 🔮 魔法 1：五感探索區專屬的「群組化排版」
+        // ==========================================
+        if (currentBookingType === '五感') {
+            const groupedActs = {};
+            let subCardsHtml = ''; // 獨立處理代班卡片
+
+            activities.forEach(act => {
+    // 取得目前登入志工的組別權限
+    const myGroups = sessionStorage.getItem("volGroup") || "";
+
+    if (act.isSubCard) {
+        // 第一層：類別隔離（點開五感就只看五感代班）
+        if (act.actType !== currentBookingType) return;
+
+        // 第二層：組別權限隔離（只有該組或兼任該組的志工才看得到）
+        let hasGroupPermission = false;
+        if (act.actType === '一般' || act.actType === '導覽') hasGroupPermission = myGroups.includes('活動組');
+        else if (act.actType === '五感') hasGroupPermission = myGroups.includes('五感');
+        else if (act.actType === '蛙寶') hasGroupPermission = (myGroups.includes('故事') || myGroups.includes('蛙寶'));
+        else if (act.actType === '創客課程' || act.actType === '創客讀者預約' || act.actType === '培訓') hasGroupPermission = myGroups.includes('創客');
+
+        if (!hasGroupPermission) return; // 若無權限則跳過不顯示該代班卡片
+        
+    } else {
+        // 一般卡片（非代班）只需判斷類別是否符合
+        if (act.actType !== currentBookingType) return;
+    }
+
+    hasActivities = true;
+
+                if (act.isSubCard) {
+                    const actDetails = act.actDetails;
+                    subCardsHtml += `
+                        <div class="activity-card" style="border-left-color: #ff5722;">
+                            <h4 style="margin:0 0 10px 0;">${act.content}</h4>
+                            <p class="meta-text">⏰ 時間：${act.date} ${act.time}</p>
+                            <button class="btn-book" style="background-color: #ff5722;" onclick="submitTakeSubstitute('${act.recordRow}', '${actDetails}')">🙋‍♂️ 協助代班</button>
+                        </div>
+                    `;
+                } else {
+                    if (!groupedActs[act.date]) groupedActs[act.date] = [];
+                    groupedActs[act.date].push(act);
+                }
+            });
+
+            if (!hasActivities) {
+                listDiv.innerHTML = '<p style="text-align:center; color:#666;">目前沒有可填班的時段喔！</p>';
+                return;
+            }
+
+            // 先渲染代班卡片
+            if (subCardsHtml) listDiv.innerHTML += subCardsHtml;
+
+            // 渲染群組化日期卡片
+            for (const date in groupedActs) {
+                const slots = groupedActs[date];
+                const card = document.createElement('div');
+                card.className = 'activity-card';
+                card.style.borderLeftColor = '#e83e8c';
+                card.style.padding = '12px 15px';
+                
+                // 確保 grid 是兩欄分布，並縮小卡片間距
+let slotsHtml = `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;">`;
+
+                
+                slots.forEach(act => {
+                    const isFull = act.remain <= 0;
+                    let btnDisabled = ''; let btnColor = '#e83e8c'; let btnText = `剩餘 ${act.remain} 人`;
+                    
+                    if (act.isPreview) {
+                        btnDisabled = 'disabled'; btnColor = '#ff9800'; btnText = '預覽中';
+                    } else if (isFull) {
+                        btnDisabled = 'disabled'; btnColor = '#ccc'; btnText = '已額滿';
+                    }
+                    
+                    const actDetails = `${act.date} ${act.time} ${act.content}`;
+                    const onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
+
+                    slotsHtml += `
+                        <button class="btn-sm" style="background-color: ${btnColor}; color: white; border: none; padding: 8px; border-radius: 8px; cursor: ${btnDisabled ? 'not-allowed' : 'pointer'}; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.4;" onclick="${onclickFn}" ${btnDisabled}>
+                            <span style="font-weight: bold; font-size: 15px;">${act.time}</span>
+                            <span style="font-size: 12px; background: rgba(255,255,255,0.25); padding: 2px 8px; border-radius: 10px; margin-top: 4px;">${btnText}</span>
+                        </button>
+                    `;
+                });
+                slotsHtml += `</div>`;
+
+                card.innerHTML = `<h4 style="margin: 0; color: #333; font-size: 16px; border-bottom: 1px solid #eee; padding-bottom: 8px;">📅 ${date}</h4>${slotsHtml}`;
+                listDiv.appendChild(card);
+            }
+
+        } 
+        // ==========================================
+        // 🔮 魔法 2：其他一般、創客、培訓的標準排版
+        // ==========================================
+        else {
+            activities.forEach(act => {
+                const myGroups = sessionStorage.getItem("volGroup") || "";
+
+if (act.isSubCard) {
+    // 代班卡片的雙重過濾
+    if (act.actType !== currentBookingType) return;
+    
+    let hasGroupPermission = false;
+    if (act.actType === '一般' || act.actType === '導覽') hasGroupPermission = myGroups.includes('活動組');
+    else if (act.actType === '五感') hasGroupPermission = myGroups.includes('五感');
+    else if (act.actType === '蛙寶') hasGroupPermission = (myGroups.includes('故事') || myGroups.includes('蛙寶'));
+    else if (act.actType === '創客課程' || act.actType === '創客讀者預約' || act.actType === '培訓') hasGroupPermission = myGroups.includes('創客');
+    
+    if (!hasGroupPermission) return;
+} else {
+    // 一般卡片的類別過濾
+    if (act.actType !== currentBookingType) return;
+}
+                hasActivities = true;
+
+                const isFull = act.remain <= 0;
+                const actDetails = act.isSubCard ? act.actDetails : `${act.date} ${act.time} ${act.content}`;
+                
+                let btnDisabled = ''; let btnText = '✅ 點我填班'; let btnColor = '#008CBA';
+                let onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
+                
+                // 【保留】創客課程的專長自動防呆審核
+                if (act.actType === '創客課程' && !act.isSubCard) {
+                    const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
+                    const myInstSkills = sessionStorage.getItem("volInstructorSkills") || "";
+                    const reqSkill = act.reqSkill || "";
+                    let hasSkill = false;
+                    const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
+
+                    if (act.role === '講師') {
+                        hasSkill = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myInstSkills.includes(rs));
+                    } else if (act.role === '助教') {
+                        hasSkill = act.isPhase1 ? (reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myDutySkills.includes(rs))) : true;
+                    }
+
+                    if (!hasSkill && !act.isPreview && !isFull) {
+                        btnDisabled = 'disabled'; btnText = `❌ 專長不符 (${reqSkill})`; btnColor = '#ccc';
+                    }
+                }
+
+                // 【保留】培訓活動報名的 4 階段超強防呆邏輯
+                if (act.actType === '培訓' && !act.isSubCard) {
+                    const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
+                    const mySeedSkills = sessionStorage.getItem("volSeedSkills") || "";
+                    const myTrainedCount = parseInt(sessionStorage.getItem("volTrainedCount") || "0", 10);
+                    const reqSkill = act.reqSkill || "";
+                    const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
+                    
+                    let hasSkillDuty = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myDutySkills.includes(rs));
+                    let hasSkillSeed = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => mySeedSkills.includes(rs));
+
+                    let isAllowed = false; let blockReason = "";
+
+                    if (act.phase === 4) {
+                        isAllowed = true;
+                    } else if (act.phase === 3) {
+                        if (myTrainedCount === 0) isAllowed = true; else blockReason = "❌ 限未受訓者";
+                    } else if (act.phase === 2) {
+                        if (myTrainedCount === 0 && (hasSkillSeed || hasSkillDuty)) isAllowed = true;
+                        else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 專長不符 (${reqSkill})`;
+                    } else if (act.phase === 1) {
+                        if (myTrainedCount === 0 && hasSkillSeed) isAllowed = true;
+                        else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 限對應專長之種子教師`;
+                    } else {
+                        blockReason = `👀 尚未開放 (${act.p1TimeStr})`;
+                    }
+
+                    if (!isAllowed && !act.isPreview && !isFull) {
+                        btnDisabled = 'disabled'; btnText = blockReason; btnColor = '#ccc';
+                    }
+                }
+                
+                // 狀態覆蓋 (代班/預覽/額滿)
+                if (act.isSubCard) {
+                    btnText = '🙋‍♂️ 協助代班'; btnColor = '#ff5722';
+                    onclickFn = `submitTakeSubstitute('${act.recordRow}', '${actDetails}')`; 
+                } else if (act.isPreview) {
+                    btnDisabled = 'disabled'; btnText = `👀 預覽中 (${act.p1TimeStr} 開放)`; btnColor = '#ff9800';
+                } else if (isFull) {
+                    btnDisabled = 'disabled'; btnText = '❌ 已額滿'; btnColor = '#ccc';
+                }
+                
+                const card = document.createElement('div');
+                card.className = isFull ? 'activity-card full' : 'activity-card';
+                if (act.isPreview) card.style.borderLeftColor = '#ff9800';
+                if (act.isSubCard) card.style.borderLeftColor = '#ff5722';
+                if (act.actType === '創客課程') { card.style.borderLeftColor = '#28a745'; card.style.backgroundColor = '#f4fbf5'; }
+                if (act.actType === '培訓') { card.style.borderLeftColor = '#17a2b8'; card.style.backgroundColor = '#f0f9fa'; }
+                
+                card.innerHTML = `
+                    <h4 style="margin:0 0 10px 0;">${act.content}</h4>
+                    <p class="meta-text">⏰ 時間：${act.date} ${act.time}</p>
+                    <p class="meta-text">👥 名額：剩餘 <span style="color: ${isFull ? 'red' : 'green'}; font-weight: bold;">${act.remain}</span> / ${act.quota} 人</p>
+                    <button class="btn-book" style="background-color: ${btnColor};" onclick="${onclickFn}" ${btnDisabled}>${btnText}</button>
+                `;
+                listDiv.appendChild(card);
+            });
+
+            if (!hasActivities) listDiv.innerHTML = '<p style="text-align:center; color:#666;">目前沒有可填班的時段喔！</p>';
+        }
+    }
+
+    function submitBooking(actIndex, actDetails, actType) {
+        const lineId = sessionStorage.getItem("volLineId"); const name = sessionStorage.getItem("volName");
+        if (!lineId) { alert("登入資訊遺失，請重新開啟 LINE 介面！"); return; }
+        if (confirm(`確定要填班：\n${actDetails} 嗎？`)) {
+            showLoading();
+            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "bookShift", lineId: lineId, name: name, actIndex: actIndex, actDetails: actDetails, actType: actType }) })
+            .then(res => res.json()).then(data => {
+                hideLoading();
+                if (data.status === "success") { 
+                    alert("🎉 " + data.message); 
+                    if(document.getElementById('calendarPanel').style.display === 'block') openCalendar();
+                    else fetchActivities(); 
+                } else { 
+                    alert("⚠️ 填班失敗：\n" + data.message); 
+                    if(document.getElementById('calendarPanel').style.display === 'block') openCalendar();
+                    else fetchActivities(); 
+                }
+            }).catch(err => { hideLoading(); alert("連線逾時。"); });
+        }
+    }
+
+    function submitTakeSubstitute(recordRow, actDetails) {
+        const lineId = sessionStorage.getItem("volLineId"); const name = sessionStorage.getItem("volName");
+        // 【新增這行】
+    const cleanDetails = actDetails.replace(/<br>/g, '\n').replace(/<[^>]+>/g, '');
+    
+    if (confirm(`確定要接手這個代班嗎？\n(您的姓名將會取代原志工)\n\n📅 班次資訊：\n${cleanDetails}`)) { // <--- 這裡改用 cleanDetails
+        showLoading();
+            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "takeSubstitute", lineId: lineId, name: name, recordRow: recordRow }) })
+            .then(res => res.json()).then(data => {
+                hideLoading();
+                if (data.status === "success") { 
+                    alert("🎉 " + data.message); 
+                    if(document.getElementById('calendarPanel').style.display === 'block') openCalendar();
+                    else fetchActivities(); 
+                } else { 
+                    alert("⚠️ 代班失敗：\n" + data.message); 
+                    if(document.getElementById('calendarPanel').style.display === 'block') openCalendar();
+                    else fetchActivities(); 
+                }
+            }).catch(err => { hideLoading(); alert("連線逾時。"); });
+        }
+    }
+
+    document.getElementById('btn-staff-manage').addEventListener('click', function() {
+        const panel = document.getElementById('staffPanel');
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            panel.style.display = 'block';
+            loadParams(); 
+        } else { panel.style.display = 'none'; }
+    });
+
+    function loadParams() {
+        const msg = document.getElementById('saveMsg');
+        msg.style.color = "#666"; msg.innerText = "正在讀取目前設定...";
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getParams" }) })
+        .then(res => res.json()).then(data => {
+            if (data.status === "success" && data.data) {
+                const d = data.data;
+                ['gen','frog','sense','maker','train'].forEach(k => {
+                    if(document.getElementById(k+'_m')) document.getElementById(k+'_m').value = d[k+'_m'] || '';
+                    if(document.getElementById(k+'_prev')) document.getElementById(k+'_prev').value = d[k+'_prev'] || '';
+                    if(document.getElementById(k+'_p1')) document.getElementById(k+'_p1').value = d[k+'_p1'] || '';
+                    if(document.getElementById(k+'_p2')) document.getElementById(k+'_p2').value = d[k+'_p2'] || '';
+                });
+                document.getElementById('train_p3').value = d['train_p3'] || '';
+                document.getElementById('train_p4').value = d['train_p4'] || '';
+                document.getElementById('sense_p3').value = d['sense_p3'] || '';
+                msg.innerText = ""; 
+            } else { msg.innerText = "讀取設定失敗。"; }
+        }).catch(err => { msg.innerText = "連線失敗。"; });
+    }
+
+    function saveParams() {
+        const payload = { action: "saveParams" };
+        ['gen','frog','sense','maker','train'].forEach(k => {
+            if(document.getElementById(k+'_m')) payload[k+'_m'] = document.getElementById(k+'_m').value;
+            if(document.getElementById(k+'_prev')) payload[k+'_prev'] = document.getElementById(k+'_prev').value;
+            if(document.getElementById(k+'_p1')) payload[k+'_p1'] = document.getElementById(k+'_p1').value;
+            if(document.getElementById(k+'_p2')) payload[k+'_p2'] = document.getElementById(k+'_p2').value;
+        });
+        payload['train_p3'] = document.getElementById('train_p3').value;
+        payload['train_p4'] = document.getElementById('train_p4').value;
+        payload['sense_p3'] = document.getElementById('sense_p3').value;
+
+        const msg = document.getElementById('saveMsg');
+        msg.innerText = "儲存中...";
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) })
+        .then(res => res.json()).then(data => {
+            if (data.status === "success") { msg.style.color = "green"; msg.innerText = "✅ 儲存成功！"; }
+        }).catch(err => { msg.innerText = "儲存失敗。"; });
+    }
+
+    document.getElementById('btn-my-schedule').addEventListener('click', function() {
+        document.getElementById('buttonArea').style.display = 'none';
+        document.getElementById('myPanel').style.display = 'block';
+        
+        // 重置篩選器
+        document.getElementById('myScheduleFilter').value = 'all';
+        fetchMySchedule();
+    });
+
+    function fetchMySchedule() {
+        const listDiv = document.getElementById('myActivityList');
+        listDiv.innerHTML = "資料載入中，請稍候...";
+        const lineId = sessionStorage.getItem("volLineId");
+
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getMySchedule", lineId: lineId }) })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "success") {
+                globalMyShifts = data.data; // 存入全域變數
+                renderMySchedule(); // 呼叫無參數的 render，它會自動抓全域變數跟篩選器
+            } else listDiv.innerHTML = "讀取失敗：" + data.message;
+        }).catch(err => { listDiv.innerHTML = "網路錯誤，無法讀取您的班表。"; });
+    }
+
+    // 【升級】帶有前端類別篩選功能的 render
+    function renderMySchedule() {
+    const filterVal = document.getElementById('myScheduleFilter').value;
+    const listDiv = document.getElementById('myActivityList');
+    listDiv.innerHTML = ""; 
+
+    // 1. 過濾與排序：先根據 actTimestamp 進行由近到遠的排序 (問題 1 解決方案)
+    const filteredShifts = globalMyShifts
+        .filter(shift => filterVal === 'all' ? true : shift.actType === filterVal)
+        .sort((a, b) => a.actTimestamp - b.actTimestamp);
+
+    if (filteredShifts.length === 0) { 
+        listDiv.innerHTML = "<p style='text-align:center; color:#666; padding:20px;'>此分類下沒有任何排班紀錄喔！</p>";
+        return; 
+    }
+
+    // 2. 如果是「顯示全部」，採用群組化排版 (問題 2 解決方案)
+    if (filterVal === 'all') {
+        const groupedShifts = {};
+        filteredShifts.forEach(shift => {
+            // 從 actDetails 抓取日期字串 (YYYY/MM/DD) 作為 Key
+            const dateMatch = shift.actDetails.match(/\d{4}\/\d{2}\/\d{2}/);
+            const dateKey = dateMatch ? dateMatch[0] : "其他";
+            if (!groupedShifts[dateKey]) groupedShifts[dateKey] = [];
+            groupedShifts[dateKey].push(shift);
+        });
+
+        // 依日期渲染
+        Object.keys(groupedShifts).sort().forEach(date => {
+            const dateHeader = document.createElement('div');
+            dateHeader.className = 'date-header';
+            dateHeader.innerText = `📅 ${date}`;
+            listDiv.appendChild(dateHeader);
+
+            groupedShifts[date].forEach(shift => {
+                const card = createScheduleCard(shift);
+                listDiv.appendChild(card);
+            });
+        });
+    } else {
+        // 若選擇特定類別，則直接顯示排序後的卡片
+        filteredShifts.forEach(shift => {
+            const card = createScheduleCard(shift);
+            listDiv.appendChild(card);
+        });
+    }
+}
+
+    // 輔助函數：建立具有顏色區隔的個人排班卡片
+function createScheduleCard(shift) {
+    const card = document.createElement('div');
+    card.className = 'activity-card';
+    
+    // 🎨 分類顏色配置 (與班表總覽一致)
+    let borderColor = '#8e44ad'; 
+    let bgColor = '#ffffff';
+
+    switch(shift.actType) {
+        case '一般': borderColor = '#6c757d'; break;
+        case '導覽': borderColor = '#17a2b8'; bgColor = '#f4fafb'; break;
+        case '五感': borderColor = '#e83e8c'; bgColor = '#fff0f5'; break;
+        case '蛙寶': borderColor = '#ff9800'; bgColor = '#fff8e1'; break;
+        case '創客課程': borderColor = '#28a745'; bgColor = '#f4fbf5'; break;
+        case '創客讀者預約': borderColor = '#d35400'; bgColor = '#fdf3ed'; break;
+        case '培訓': borderColor = '#007bff'; bgColor = '#f0f8ff'; break;
+    }
+
+    card.style.borderLeftColor = borderColor;
+    card.style.backgroundColor = bgColor;
+
+    let btnHtml = '';
+    if (shift.status === '徵求代班') {
+        btnHtml = `<button class="btn-book" style="background-color: #6c757d;" onclick="submitRetractSubstitute('${shift.recordRow}', '${shift.actDetails}')">🔙 撤回代班請求 (恢復值勤)</button>`;
+    } else if (shift.isDirectCancel) {
+        btnHtml = `<button class="btn-book" style="background-color: #dc3545;" onclick="submitAskSubstitute('${shift.recordRow}', '${shift.actDetails}', true)">直接取消 (名額釋出)</button>`;
+    } else {
+        btnHtml = `<button class="btn-book" style="background-color: #ff9800;" onclick="submitAskSubstitute('${shift.recordRow}', '${shift.actDetails}', false)">我要請假 (徵求代班)</button>`;
+    }
+
+    card.innerHTML = `
+        <h4 style="margin:0 0 10px 0; font-size: 16px;">${shift.actDetails}</h4>
+        <p class="meta-text" style="margin-bottom: 8px;">🔖 狀態：<span style="color: ${shift.status==='正常'?'green':'#ff4400'}; font-weight: bold;">${shift.status}</span></p>
+        ${btnHtml}
+    `;
+    return card;
+}
+
+    function submitAskSubstitute(recordRow, actDetails, isDirectCancel) {
+        const lineId = sessionStorage.getItem("volLineId");
+        // 【保留這行】將換行符號還原，並過濾掉所有 HTML 標籤，讓彈出視窗乾淨
+        const cleanDetails = actDetails.replace(/<br>/g, '\n').replace(/<[^>]+>/g, '');
+        
+        // 【關鍵修改】不再解釋複雜規則，直接告訴志工最終結果
+        let confirmMsg = isDirectCancel 
+        ? `確定要退出這個排班嗎？\n\n✅ 您目前符合自由取消資格，\n此班次將會【直接取消並釋出名額】。\n\n📅 班次資訊：\n${cleanDetails}`
+        : `確定要請假這個排班嗎？\n\n⚠️ 由於已超過自由取消期限，\n系統將為您轉為【徵求代班】狀態。\n(需等其他志工接手才算請假成功喔！)\n\n📅 班次資訊：\n${cleanDetails}`;
+
+        if (confirm(confirmMsg)) {
+            showLoading();
+            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "askSubstitute", lineId: lineId, recordRow: recordRow }) })
+            .then(res => res.json()).then(data => {
+                hideLoading();
+                if (data.status === "success") { alert("✅ " + data.message); fetchMySchedule(); } 
+                else { alert("⚠️ 錯誤：\n" + data.message); }
+            }).catch(err => { hideLoading(); alert("連線逾時。"); });
+        }
+    }
+
+    function submitRetractSubstitute(recordRow, actDetails) {
+        const lineId = sessionStorage.getItem("volLineId");
+        // 【新增這行】
+    const cleanDetails = actDetails.replace(/<br>/g, '\n').replace(/<[^>]+>/g, '');
+    
+    if (confirm(`確定要撤回代班請求嗎？\n(撤回後將恢復您的值勤狀態)\n\n${cleanDetails}`)) { // <--- 這裡改用 cleanDetails
+        showLoading();
+            fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "retractSubstitute", lineId: lineId, recordRow: recordRow }) })
+            .then(res => res.json()).then(data => {
+                hideLoading();
+                if (data.status === "success") { alert("✅ " + data.message); fetchMySchedule(); } 
+                else { alert("⚠️ 錯誤：\n" + data.message); }
+            }).catch(err => { hideLoading(); alert("連線逾時。"); });
+        }
+    }
+
+    function openCalendar() {
+        document.getElementById('buttonArea').style.display = 'none';
+        document.getElementById('calendarPanel').style.display = 'block';
+        document.getElementById('calendarFilter').value = 'all'; // 重置篩選器
+        
+        const listDiv = document.getElementById('calendarList');
+        listDiv.innerHTML = "抓取班表中，請稍候...";
+        
+        const lineId = sessionStorage.getItem("volLineId");
+        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "getCalendarData", lineId: lineId }) })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "success") {
+                globalCalendarData = data.data; // 存入全域變數
+                renderCalendar();
+            }
+            else listDiv.innerHTML = "讀取失敗：" + data.message;
+        }).catch(err => { listDiv.innerHTML = "網路錯誤。"; });
+    }
+
+    // 【升級】帶有前端類別篩選功能的 render
+    function renderCalendar() {
+        const filterVal = document.getElementById('calendarFilter').value;
+        const listDiv = document.getElementById('calendarList');
+        listDiv.innerHTML = "";
+        const userRole = sessionStorage.getItem("userRole");
+        
+        const dates = Object.keys(globalCalendarData).sort(); 
+        if(dates.length === 0) { listDiv.innerHTML = "目前沒有任何班表資料。"; return; }
+
+        let hasAnyRendered = false;
+
+        dates.forEach(date => {
+            // 過濾該日期下的活動
+            // 【終極修復】精準的月曆標籤過濾
+            const filteredActs = globalCalendarData[date].filter(act => {
+                if (filterVal === 'all') return true;
+                if (filterVal === '一般') return act.actType === '一般';
+                if (filterVal === '導覽') return act.actType === '導覽';
+                if (filterVal === '五感') return act.actType === '五感';
+                if (filterVal === '蛙寶') return act.actType === '蛙寶';
+                if (filterVal === '創客課程') return act.actType === '創客課程';
+                if (filterVal === '創客讀者預約') return act.actType === '創客讀者預約';
+                if (filterVal === '培訓') return act.actType === '培訓';
+                return true;
+            });
+
+            if (filteredActs.length === 0) return; // 這個日期如果沒有符合篩選的活動，就整天跳過
+            hasAnyRendered = true;
+
+            const dateHeader = document.createElement('div');
+            dateHeader.className = 'date-header';
+            dateHeader.innerText = `📅 ${date}`;
+            listDiv.appendChild(dateHeader);
+            
+            filteredActs.forEach(act => {
+                const card = document.createElement('div');
+                card.className = 'activity-card';
+                card.style.padding = '10px 15px';
+
+                // 【新增】根據 actType 動態設定邊框與背景顏色
+                let borderColor = '#8e44ad'; 
+                let bgColor = '#ffffff';
+
+                switch(act.actType) {
+                    case '一般': 
+                        borderColor = '#6c757d'; break;
+                    case '導覽': 
+                        borderColor = '#17a2b8'; bgColor = '#f4fafb'; break;
+                    case '五感': 
+                        borderColor = '#e83e8c'; bgColor = '#fff0f5'; break;
+                    case '蛙寶': 
+                        borderColor = '#ff9800'; bgColor = '#fff8e1'; break;
+                    case '創客課程': 
+                        borderColor = '#28a745'; bgColor = '#f4fbf5'; break;
+                    case '創客讀者預約': 
+                        borderColor = '#d35400'; bgColor = '#fdf3ed'; break;
+                    case '培訓': 
+                        borderColor = '#007bff'; bgColor = '#f0f8ff'; break;
+                }
+
+                card.style.borderLeftColor = borderColor;
+                card.style.backgroundColor = bgColor;
+                
+                let tagsHtml = '';
+                
+                act.slots.forEach(slot => {
+                    slot.vols.forEach(v => {
+                        if (userRole === "staff") {
+                            let statusText = v.isSub ? '🆘 (徵求代班)' : '✔️';
+                            let bgColor = v.isSub ? '#dc3545' : '#e9ecef';
+                            let textColor = v.isSub ? 'white' : '#333';
+                            
+                            // 【關鍵修正】把單引號、雙引號進行安全逸出，避免破壞 HTML onclick 語法
+                            let safeDetails = slot.actDetails.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+
+                            tagsHtml += `<span class="vol-tag" style="background:${bgColor}; color:${textColor}; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="staffManageVol('${v.name}', '${v.phone}', '${v.lineName}', '${v.recordRow}', '${safeDetails}')">${statusText} ${v.name} ${slot.role}</span>`;
+                        } else {
+                            if (v.isSub) {
+                                tagsHtml += `<button class="btn-sm" style="background:#dc3545; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" onclick="submitTakeSubstitute('${v.recordRow}', '${slot.actDetails}')">🆘 ${v.name} 徵求代班 (點擊接手)</button>`;
+                            } else {
+                                tagsHtml += `<span class="vol-tag" style="background:#e9ecef; color:#333; padding:4px 10px; border-radius:15px; margin:2px 5px 2px 0;">✔️ ${v.name} ${slot.role}</span>`;
+                            }
+                        }
+                    });
+                    
+                    if (userRole !== "staff") {
+                        for (let i = 0; i < slot.remain; i++) {
+                            let btnText = act.isPreview ? '👀 預覽中' : `➕ 點我填班 ${slot.role}`;
+                            let btnColor = act.isPreview ? '#ff9800' : '#008CBA';
+                            let disabledAttr = act.isPreview ? 'disabled' : '';
+                            tagsHtml += `<button class="btn-sm" style="background:${btnColor}; color:white; border:none; border-radius:15px; padding:4px 10px; margin:2px 5px 2px 0; cursor:pointer;" onclick="submitBooking('${act.index}', '${slot.actDetails}', '${act.actType}')" ${disabledAttr}>${btnText}</button>`;
+                        }
+                    } else if (slot.remain > 0) {
+                        tagsHtml += `<span class="vol-tag" style="background:transparent; border: 1px dashed #ccc; color:#999; padding:4px 10px; border-radius:15px; margin:2px 5px 2px 0;">尚有 ${slot.remain} 個空缺 ${slot.role}</span>`;
+                    }
+                });
+
+                card.innerHTML = `
+                    <h5 style="margin: 0 0 8px 0; color:#333; line-height: 1.4;">${act.time} - ${act.content}</h5>
+                    <div style="line-height: 2.2;">${tagsHtml}</div>
+                `;
+                listDiv.appendChild(card);
+            });
+        });
+
+        if (!hasAnyRendered) listDiv.innerHTML = "此分類下目前沒有班表資料。";
+    }
+
+    let currentCancelData = null; 
+    function staffManageVol(name, phone, lineName, recordRow, actDetails) {
+        currentCancelData = { name: name, recordRow: recordRow, volName: name };
+        const modal = document.getElementById('staffModal');
+        const contentArea = document.getElementById('staffModalContent');
+        
+        const safeName = name || '未提供';
+        const safePhone = phone || '無資料';
+        const safeLineName = lineName || '無';
+
+        let content = `
+            <div style="display: flex; flex-direction: column; gap: 6px; text-align: left;">
+                <div><b>姓名：</b> <span style="font-size:16px; color:#0056b3; font-weight:bold;">${safeName}</span></div>
+                <div><b>電話：</b> <a href="tel:${safePhone}" style="color:#28a745; text-decoration:none; font-weight:bold;">${safePhone}</a></div>
+                <div style="display:flex; align-items:center; flex-wrap:wrap; gap:5px;">
+                   <b>LINE：</b> 
+                   <span id="lineNameText" style="background:#f1f1f1; padding:2px 6px; border-radius:4px;">${safeLineName}</span>
+                   <button onclick="copyLineName('${safeLineName}')" style="font-size:12px; padding:3px 8px; cursor:pointer; background:#6c757d; color:white; border:none; border-radius:4px;">複製Tag</button>
+                </div>
+                <hr style="border:0; border-top:1px dashed #ccc; margin: 4px 0; width: 100%;">
+                <div style="font-weight: bold; color: #555;">📋 班次細節：</div>
+                <div style="background:#f8f9fa; padding:8px; border-radius:6px; font-size:13px; border:1px solid #ddd; word-break: break-all;">
+                    ${actDetails}
+                </div>
+            </div>
+        `;
+        contentArea.innerHTML = content;
+        modal.style.display = 'flex';
+    }
+
+    function copyLineName(lineName) {
+        if (!lineName || lineName === 'undefined') { alert('無 LINE 名稱可複製'); return; }
+        const tag = "@" + lineName;
+        const tempInput = document.createElement("input");
+        document.body.appendChild(tempInput);
+        tempInput.value = tag;
+        tempInput.select();
+        document.execCommand("copy");
+        document.body.removeChild(tempInput);
+        alert("已複製: " + tag + " (可直接至群組貼上)");
+    }
+
+    function closeStaffModal() {
+        document.getElementById('staffModal').style.display = 'none';
+        currentCancelData = null; 
+    }
+
+    function executeStaffCancel() {
+        if (!currentCancelData) return;
+        
+        // 【修正】先將 recordRow 存起來，避免關閉視窗時資料被清空
+        const targetRow = currentCancelData.recordRow; 
+
+        if (confirm(`⚠️ 確定要刪除 ${currentCancelData.name} 的這筆排班紀錄嗎？\n(刪除/取消後名額將立即釋出)`)) {
+            if (confirm(`❗ 最後確認：確定執行取消作業？`)) {
+                closeStaffModal(); // 現在安全了，可以安心關閉視窗
+                showLoading();
+                fetch(GAS_URL, { 
+                    method: 'POST', 
+                    body: JSON.stringify({ 
+                        action: "staffCancelShift", 
+                        lineId: sessionStorage.getItem("volLineId"), 
+                        recordRow: targetRow  // 使用已保存的行號
+                    }) 
+                })
+                .then(res => res.json())
+                .then(data => {
+                    hideLoading();
+                    alert(data.message);
+                    location.reload(); 
+                })
+                .catch(err => { hideLoading(); alert("連線失敗：" + err); });
+            }
+        }
+    }
+
+    function submitVerification() {
+        const phone = document.getElementById('verifyPhone').value.trim();
+        const lineId = sessionStorage.getItem("volLineId");
+        
+        if (!phone) { alert("請輸入電話號碼！"); return; }
+        
+        showLoading();
+        fetch(GAS_URL, { 
+            method: 'POST', 
+            body: JSON.stringify({ action: "verifyVolunteer", lineId: lineId, phone: phone }) 
+        })
+        .then(res => res.json())
+        .then(data => {
+            hideLoading();
+            if (data.status === "success") {
+                alert("✅ 驗證成功！已成功綁定您的 LINE 帳號。");
+                
+                // --- 【關鍵修正：恢復顯示系統主界面】 ---
+                
+                // 1. 隱藏驗證面板
+                document.getElementById('verifyPanel').style.display = "none";
+                
+                // 2. 恢復顯示狀態文字區與按鈕區域 (重要！)
+                document.getElementById('statusMessage').style.display = "block";
+                document.getElementById('buttonArea').style.display = "block"; 
+                
+                // 3. 更新歡迎文字
+                document.getElementById('statusMessage').innerText = `歡迎，${data.name}！`;
+                
+                // 4. 根據驗證回傳的資料，動態生成權限選單
+                showButtonsByRole(data);
+                
+            } else {
+                alert(data.message);
+            }
+        }).catch(err => { hideLoading(); alert("連線逾時，請檢查網路。"); });
+    }
+</script>
+
+</body>
+</html>
