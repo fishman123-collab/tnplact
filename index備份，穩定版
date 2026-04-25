@@ -141,8 +141,9 @@
             <div class="menu-content" id="staff-sense" style="display:none;">
                 <label>開放月份：</label><input type="month" id="sense_m">
                 <label>預覽時間：</label><input type="datetime-local" id="sense_prev">
-                <label>第一階段 (限1班)：</label><input type="datetime-local" id="sense_p1">
-                <label>第二階段 (無限制)：</label><input type="datetime-local" id="sense_p2">
+                <label>第一階段 (限3班)：</label><input type="datetime-local" id="sense_p1">
+                <label>第二階段 (累計限6班)：</label><input type="datetime-local" id="sense_p2">
+                <label>第三階段 (無限制)：</label><input type="datetime-local" id="sense_p3">
             </div>
         </div>
 
@@ -824,6 +825,7 @@ if (act.isSubCard) {
                 });
                 document.getElementById('train_p3').value = d['train_p3'] || '';
                 document.getElementById('train_p4').value = d['train_p4'] || '';
+                document.getElementById('sense_p3').value = d['sense_p3'] || '';
                 msg.innerText = ""; 
             } else { msg.innerText = "讀取設定失敗。"; }
         }).catch(err => { msg.innerText = "連線失敗。"; });
@@ -839,6 +841,7 @@ if (act.isSubCard) {
         });
         payload['train_p3'] = document.getElementById('train_p3').value;
         payload['train_p4'] = document.getElementById('train_p4').value;
+        payload['sense_p3'] = document.getElementById('sense_p3').value;
 
         const msg = document.getElementById('saveMsg');
         msg.innerText = "儲存中...";
