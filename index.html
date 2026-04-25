@@ -266,16 +266,28 @@
     window.onload = function() {
         liff.init({ liffId: LIFF_ID })
             .then(() => {
-                if (!liff.isLoggedIn()) liff.login(); 
-                else liff.getProfile().then(profile => { checkUserRole(profile.userId); });
+                if (!liff.isLoggedIn()) liff.login();
+                else liff.getProfile().then(profile => { 
+                    // 【新增】將當前的 LINE 名稱存起來
+                    sessionStorage.setItem("lineDisplayName", profile.displayName); 
+                    checkUserRole(profile.userId, profile.displayName); 
+                });
             })
             .catch(err => { document.getElementById('statusMessage').innerText = "LIFF 初始化失敗：" + err.message; });
     };
 
     function checkUserRole(lineId) {
+        function checkUserRole(lineId, displayName) {
         sessionStorage.setItem("volLineId", lineId);
         document.getElementById('statusMessage').innerText = "驗證身分與權限中...";
-        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "checkLogin", lineId: lineId }) })
+        fetch(GAS_URL, { 
+            method: 'POST', 
+            body: JSON.stringify({ 
+                action: "checkLogin", 
+                lineId: lineId, 
+                displayName: displayName // 【新增】傳送名稱
+            }) 
+        })
         .then(response => response.json())
         .then(data => {
             if (data.status === "success") {
@@ -1230,13 +1242,19 @@ function createScheduleCard(shift) {
     function submitVerification() {
         const phone = document.getElementById('verifyPhone').value.trim();
         const lineId = sessionStorage.getItem("volLineId");
+        const displayName = sessionStorage.getItem("lineDisplayName"); // 【新增】抓取名稱
         
         if (!phone) { alert("請輸入電話號碼！"); return; }
         
         showLoading();
         fetch(GAS_URL, { 
             method: 'POST', 
-            body: JSON.stringify({ action: "verifyVolunteer", lineId: lineId, phone: phone }) 
+            body: JSON.stringify({ 
+                action: "verifyVolunteer", 
+                lineId: lineId, 
+                phone: phone,
+                displayName: displayName // 【新增】傳送名稱
+            }) 
         })
         .then(res => res.json())
         .then(data => {
