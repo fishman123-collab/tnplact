@@ -1033,7 +1033,7 @@ function createScheduleCard(shift) {
 
         dates.forEach(date => {
             // 過濾該日期下的活動
-            // 【終極修復】精準的月曆標籤過濾
+            // 【終極修復】精準的月曆標籤過濾 + 依據時間先後排序
             const filteredActs = globalCalendarData[date].filter(act => {
                 if (filterVal === 'all') return true;
                 if (filterVal === '一般') return act.actType === '一般';
@@ -1044,6 +1044,14 @@ function createScheduleCard(shift) {
                 if (filterVal === '創客讀者預約') return act.actType === '創客讀者預約';
                 if (filterVal === '培訓') return act.actType === '培訓';
                 return true;
+            }).sort((a, b) => {
+                // 將時間字串 (如 9:30) 轉換為分鐘數，以便進行數字大小排序
+                function getMins(tStr) {
+                    if (!tStr) return 9999; // 沒時間的放最後面
+                    const m = tStr.match(/(\d{1,2}):(\d{2})/);
+                    return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : 9999;
+                }
+                return getMins(a.time) - getMins(b.time);
             });
 
             if (filteredActs.length === 0) return; // 這個日期如果沒有符合篩選的活動，就整天跳過
