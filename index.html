@@ -267,15 +267,15 @@
         const textElement = document.getElementById('loadingText');
         textElement.innerHTML = "資料處理中，請稍候...";
 
-        // 設定 3 秒後的安撫文字
+        // 設定 5 秒後的安撫文字
         loadingTimer1 = setTimeout(() => {
             textElement.innerHTML = "🏃‍♂️ 目前為尖峰時段，系統正在幫您排隊...<br><span style='font-size:14px; font-weight:normal; color:#ffd700;'>大約需等候 5~15 秒，請耐心等候</span>";
-        }, 3000);
+        }, 5000);
 
-        // 設定 8 秒後的加強安撫文字
+        // 設定 9 秒後的加強安撫文字
         loadingTimer2 = setTimeout(() => {
             textElement.innerHTML = "⏳ 前面排隊人數較多，系統努力寫入中...<br><span style='font-size:15px; font-weight:bold; color:#ffb3b3;'>請千萬別關閉視窗喔，快輪到您了！</span>";
-        }, 8000);
+        }, 9000);
     }
 
     function hideLoading() {
