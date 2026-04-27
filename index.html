@@ -57,7 +57,9 @@
 
 <div id="loadingOverlay">
     <div class="spinner"></div>
-    <div style="color: white; font-size: 16px; font-weight: bold; letter-spacing: 1px;">資料處理中，請稍候...</div>
+    <div id="loadingText" style="color: white; font-size: 18px; font-weight: bold; letter-spacing: 1px; margin-top: 15px; line-height: 1.6; padding: 0 20px; text-align: center;">
+        資料處理中，請稍候...
+    </div>
 </div>
 
 <div class="container">
@@ -254,8 +256,36 @@
     let globalMyShifts = [];
     let globalCalendarData = {};
 
-    function showLoading() { document.getElementById('loadingOverlay').style.display = 'flex'; }
-    function hideLoading() { document.getElementById('loadingOverlay').style.display = 'none'; }
+    // 1. 在函式外面定義計時器變數 (確保全域可用)
+    let loadingTimer1, loadingTimer2;
+
+    function showLoading() {
+        // 顯示背景遮罩
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        
+        // 抓取文字區塊並恢復初始狀態
+        const textElement = document.getElementById('loadingText');
+        textElement.innerHTML = "資料處理中，請稍候...";
+
+        // 設定 3 秒後的安撫文字
+        loadingTimer1 = setTimeout(() => {
+            textElement.innerHTML = "🏃‍♂️ 目前為尖峰時段，系統正在幫您排隊...<br><span style='font-size:14px; font-weight:normal; color:#ffd700;'>大約需等候 5~15 秒，請耐心等候</span>";
+        }, 3000);
+
+        // 設定 8 秒後的加強安撫文字
+        loadingTimer2 = setTimeout(() => {
+            textElement.innerHTML = "⏳ 前面排隊人數較多，系統努力寫入中...<br><span style='font-size:15px; font-weight:bold; color:#ffb3b3;'>請千萬別關閉視窗喔，快輪到您了！</span>";
+        }, 8000);
+    }
+
+    function hideLoading() {
+        // 隱藏背景遮罩
+        document.getElementById('loadingOverlay').style.display = 'none';
+        
+        // 重要：停止所有還沒執行的計時器，避免下次開啟時文字亂跳
+        clearTimeout(loadingTimer1);
+        clearTimeout(loadingTimer2);
+    }
 
     // 折疊選單切換
     function toggleMenu(id) {
