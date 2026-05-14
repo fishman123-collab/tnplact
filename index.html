@@ -1075,35 +1075,47 @@ function createScheduleCard(shift) {
         });
     }
 
-    // 【升級】帶有前端類別篩選功能的 render
+    // 【修改後的 renderCalendar 核心篩選邏輯】
     function renderCalendar() {
         const filterVal = document.getElementById('calendarFilter').value;
         const listDiv = document.getElementById('calendarList');
         listDiv.innerHTML = "";
-        const userRole = sessionStorage.getItem("userRole");
         
-        const dates = Object.keys(globalCalendarData).sort(); 
+        const userRole = sessionStorage.getItem("userRole");
+        const myGroups = sessionStorage.getItem("volGroup") || ""; // 獲取當前志工權限 [cite: 118]
+        
+        const dates = Object.keys(globalCalendarData).sort();
         if(dates.length === 0) { listDiv.innerHTML = "目前沒有任何班表資料。"; return; }
 
         let hasAnyRendered = false;
-
         dates.forEach(date => {
-            // 過濾該日期下的活動
-            // 【終極修復】精準的月曆標籤過濾 + 依據時間先後排序
+            // --- 關鍵修改：雙重過濾機制 ---
             const filteredActs = globalCalendarData[date].filter(act => {
+                
+                // 1. 如果是館員，直接進入下拉選單篩選邏輯
+                if (userRole === "staff") {
+                    if (filterVal === 'all') return true;
+                    return act.actType === filterVal;
+                }
+
+                // 2. 如果是志工，先進行「權限隔離」
+                let hasPermission = false;
+                if (myGroups.includes('活動組') && (act.actType === '一般' || act.actType === '導覽')) hasPermission = true;
+                if ((myGroups.includes('故事') || myGroups.includes('蛙寶')) && act.actType === '蛙寶') hasPermission = true;
+                if (myGroups.includes('五感') && act.actType === '五感') hasPermission = true;
+                if (myGroups.includes('創客') && (act.actType === '創客課程' || act.actType === '創客讀者預約' || act.actType === '培訓')) hasPermission = true;
+
+                // 如果志工根本沒這組的權限，直接過濾掉（不顯示）
+                if (!hasPermission) return false;
+
+                // 3. 通過權限檢查後，再根據下拉選單過濾
                 if (filterVal === 'all') return true;
-                if (filterVal === '一般') return act.actType === '一般';
-                if (filterVal === '導覽') return act.actType === '導覽';
-                if (filterVal === '五感') return act.actType === '五感';
-                if (filterVal === '蛙寶') return act.actType === '蛙寶';
-                if (filterVal === '創客課程') return act.actType === '創客課程';
-                if (filterVal === '創客讀者預約') return act.actType === '創客讀者預約';
-                if (filterVal === '培訓') return act.actType === '培訓';
-                return true;
+                return act.actType === filterVal;
+                
             }).sort((a, b) => {
                 // 將時間字串 (如 9:30) 轉換為分鐘數，以便進行數字大小排序
                 function getMins(tStr) {
-                    if (!tStr) return 9999; // 沒時間的放最後面
+                    if (!tStr) return 9999;
                     const m = tStr.match(/(\d{1,2}):(\d{2})/);
                     return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : 9999;
                 }
