@@ -57,7 +57,9 @@
 
 <div id="loadingOverlay">
     <div class="spinner"></div>
-    <div style="color: white; font-size: 16px; font-weight: bold; letter-spacing: 1px;">資料處理中，請稍候...</div>
+    <div id="loadingText" style="color: white; font-size: 18px; font-weight: bold; letter-spacing: 1px; margin-top: 15px; line-height: 1.6; padding: 0 20px; text-align: center;">
+        資料處理中，請稍候...
+    </div>
 </div>
 
 <div class="container">
@@ -180,6 +182,10 @@
             <ul style="margin: 0; padding-left: 20px; color: #533f03; font-size: 14.5px; line-height: 1.6;">
                 <li>入區請務必<b>「穿著襪子」</b>，以維護環境衛生。</li>
                 <li>為感謝您的辛勞，<b>星期六、日</b>值班之時數，將以 <b>1.5 倍</b> 計算！</li>
+                <li><b>週二至週五 第四段班 增加0.5小時</b> 計算！</li>
+                 <li>第一階段排班，每人限填 3個班</li>
+                <li>第二階段排班，每人再填 3個班</li>
+                
             </ul>
         </div>
 
@@ -254,8 +260,36 @@
     let globalMyShifts = [];
     let globalCalendarData = {};
 
-    function showLoading() { document.getElementById('loadingOverlay').style.display = 'flex'; }
-    function hideLoading() { document.getElementById('loadingOverlay').style.display = 'none'; }
+    // 1. 在函式外面定義計時器變數 (確保全域可用)
+    let loadingTimer1, loadingTimer2;
+
+    function showLoading() {
+        // 顯示背景遮罩
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        
+        // 抓取文字區塊並恢復初始狀態
+        const textElement = document.getElementById('loadingText');
+        textElement.innerHTML = "資料處理中，請稍候...";
+
+        // 設定 6 秒後的安撫文字
+        loadingTimer1 = setTimeout(() => {
+            textElement.innerHTML = "🏃‍♂️ 系統正在寫入...<br><span style='font-size:14px; font-weight:normal; color:#ffd700;'>大約需等候 5~15 秒，請耐心等候</span>";
+        }, 6000);
+
+        // 設定 12 秒後的加強安撫文字
+        loadingTimer2 = setTimeout(() => {
+            textElement.innerHTML = "⏳ 前面排隊人數較多，系統努力寫入中...<br><span style='font-size:15px; font-weight:bold; color:#ffb3b3;'>請千萬別關閉視窗喔，快輪到您了！</span>";
+        }, 12000);
+    }
+
+    function hideLoading() {
+        // 隱藏背景遮罩
+        document.getElementById('loadingOverlay').style.display = 'none';
+        
+        // 重要：停止所有還沒執行的計時器，避免下次開啟時文字亂跳
+        clearTimeout(loadingTimer1);
+        clearTimeout(loadingTimer2);
+    }
 
     // 折疊選單切換
     function toggleMenu(id) {
@@ -266,16 +300,27 @@
     window.onload = function() {
         liff.init({ liffId: LIFF_ID })
             .then(() => {
-                if (!liff.isLoggedIn()) liff.login(); 
-                else liff.getProfile().then(profile => { checkUserRole(profile.userId); });
+                if (!liff.isLoggedIn()) liff.login();
+                else liff.getProfile().then(profile => { 
+                    // 【新增】將當前的 LINE 名稱存起來
+                    sessionStorage.setItem("lineDisplayName", profile.displayName); 
+                    checkUserRole(profile.userId, profile.displayName); 
+                });
             })
             .catch(err => { document.getElementById('statusMessage').innerText = "LIFF 初始化失敗：" + err.message; });
     };
 
-    function checkUserRole(lineId) {
+    function checkUserRole(lineId, displayName) {
         sessionStorage.setItem("volLineId", lineId);
         document.getElementById('statusMessage').innerText = "驗證身分與權限中...";
-        fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "checkLogin", lineId: lineId }) })
+        fetch(GAS_URL, { 
+            method: 'POST', 
+            body: JSON.stringify({ 
+                action: "checkLogin", 
+                lineId: lineId, 
+                displayName: displayName // 【新增】傳送名稱
+            }) 
+        })
         .then(response => response.json())
         .then(data => {
             if (data.status === "success") {
@@ -1034,35 +1079,47 @@ function createScheduleCard(shift) {
         });
     }
 
-    // 【升級】帶有前端類別篩選功能的 render
+    // 【修改後的 renderCalendar 核心篩選邏輯】
     function renderCalendar() {
         const filterVal = document.getElementById('calendarFilter').value;
         const listDiv = document.getElementById('calendarList');
         listDiv.innerHTML = "";
-        const userRole = sessionStorage.getItem("userRole");
         
-        const dates = Object.keys(globalCalendarData).sort(); 
+        const userRole = sessionStorage.getItem("userRole");
+        const myGroups = sessionStorage.getItem("volGroup") || ""; // 獲取當前志工權限 [cite: 118]
+        
+        const dates = Object.keys(globalCalendarData).sort();
         if(dates.length === 0) { listDiv.innerHTML = "目前沒有任何班表資料。"; return; }
 
         let hasAnyRendered = false;
-
         dates.forEach(date => {
-            // 過濾該日期下的活動
-            // 【終極修復】精準的月曆標籤過濾 + 依據時間先後排序
+            // --- 關鍵修改：雙重過濾機制 ---
             const filteredActs = globalCalendarData[date].filter(act => {
+                
+                // 1. 如果是館員，直接進入下拉選單篩選邏輯
+                if (userRole === "staff") {
+                    if (filterVal === 'all') return true;
+                    return act.actType === filterVal;
+                }
+
+                // 2. 如果是志工，先進行「權限隔離」
+                let hasPermission = false;
+                if (myGroups.includes('活動組') && (act.actType === '一般' || act.actType === '導覽')) hasPermission = true;
+                if ((myGroups.includes('故事') || myGroups.includes('蛙寶')) && act.actType === '蛙寶') hasPermission = true;
+                if (myGroups.includes('五感') && act.actType === '五感') hasPermission = true;
+                if (myGroups.includes('創客') && (act.actType === '創客課程' || act.actType === '創客讀者預約' || act.actType === '培訓')) hasPermission = true;
+
+                // 如果志工根本沒這組的權限，直接過濾掉（不顯示）
+                if (!hasPermission) return false;
+
+                // 3. 通過權限檢查後，再根據下拉選單過濾
                 if (filterVal === 'all') return true;
-                if (filterVal === '一般') return act.actType === '一般';
-                if (filterVal === '導覽') return act.actType === '導覽';
-                if (filterVal === '五感') return act.actType === '五感';
-                if (filterVal === '蛙寶') return act.actType === '蛙寶';
-                if (filterVal === '創客課程') return act.actType === '創客課程';
-                if (filterVal === '創客讀者預約') return act.actType === '創客讀者預約';
-                if (filterVal === '培訓') return act.actType === '培訓';
-                return true;
+                return act.actType === filterVal;
+                
             }).sort((a, b) => {
                 // 將時間字串 (如 9:30) 轉換為分鐘數，以便進行數字大小排序
                 function getMins(tStr) {
-                    if (!tStr) return 9999; // 沒時間的放最後面
+                    if (!tStr) return 9999;
                     const m = tStr.match(/(\d{1,2}):(\d{2})/);
                     return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : 9999;
                 }
@@ -1230,13 +1287,19 @@ function createScheduleCard(shift) {
     function submitVerification() {
         const phone = document.getElementById('verifyPhone').value.trim();
         const lineId = sessionStorage.getItem("volLineId");
+        const displayName = sessionStorage.getItem("lineDisplayName"); // 【新增】抓取名稱
         
         if (!phone) { alert("請輸入電話號碼！"); return; }
         
         showLoading();
         fetch(GAS_URL, { 
             method: 'POST', 
-            body: JSON.stringify({ action: "verifyVolunteer", lineId: lineId, phone: phone }) 
+            body: JSON.stringify({ 
+                action: "verifyVolunteer", 
+                lineId: lineId, 
+                phone: phone,
+                displayName: displayName // 【新增】傳送名稱
+            }) 
         })
         .then(res => res.json())
         .then(data => {
