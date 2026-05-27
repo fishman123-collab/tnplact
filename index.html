@@ -252,8 +252,8 @@
 
 <script>
     // ======== 請替換以下兩個網址/ID ========
-    const LIFF_ID = "2008914129-kU6EacB0"; 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxAxfitZSSedHZCmix-gjdS8Z1kOJvcvT5BQA9JEqmHUZuppfMRuFn7bwQZtVppKVIa/exec"; 
+    const LIFF_ID = "2008914129-kU6EacB0";  
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxAxfitZSSedHZCmix-gjdS8Z1kOJvcvT5BQA9JEqmHUZuppfMRuFn7bwQZtVppKVIa/exec";
     // ========================================
 
     // 儲存從 GAS 抓回來的原始資料，供前端篩選用
@@ -647,8 +647,9 @@
                 } else {
                     if (act.actType !== currentBookingType) return;
                     
-                    // 💡 2. 判斷是否開啟「僅顯示空班」過濾
-                    if (showOnlyEmptySense && act.remain <= 0) return; 
+                    // 💡 2. 判斷是否開啟「僅顯示空班」過濾 (若有名單內含代班請求則不篩除)
+                    const hasSubReq = act.bookedNames && act.bookedNames.some(name => name.includes('(代)'));
+                    if (showOnlyEmptySense && act.remain <= 0 && !hasSubReq) return;
 
                     if (!groupedActs[act.date]) groupedActs[act.date] = [];
                     groupedActs[act.date].push(act);
@@ -714,110 +715,152 @@
         // 🔮 魔法 2：其他一般、創客、培訓的標準排版
         // ==========================================
         else {
+            // 💡 1. 如果目前是「一般活動排班」，建立最上方的篩選器 UI
+            let filterUiHtml = '';
+            if (currentBookingType === '一般') {
+                filterUiHtml = `
+                    <div style="text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <label style="cursor: pointer; font-weight: bold; color: #008CBA; display: inline-flex; align-items: center; gap: 8px; font-size: 15px; margin: 0;">
+                            <input type="checkbox" id="chkSenseEmpty" onchange="toggleSenseEmpty()" ${showOnlyEmptySense ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;">
+                            ✅ 僅顯示尚有空班的時段
+                        </label>
+                    </div>
+                `;
+            }
+
+            let htmlContent = filterUiHtml; // 用於累積整體卡片 HTML 字串
+
             activities.forEach(act => {
                 const myGroups = sessionStorage.getItem("volGroup") || "";
 
-if (act.isSubCard) {
-    // 代班卡片的雙重過濾
-    if (act.actType !== currentBookingType) return;
-    
-    let hasGroupPermission = false;
-    if (act.actType === '一般' || act.actType === '導覽') hasGroupPermission = myGroups.includes('活動組');
-    else if (act.actType === '五感') hasGroupPermission = myGroups.includes('五感');
-    else if (act.actType === '蛙寶') hasGroupPermission = (myGroups.includes('故事') || myGroups.includes('蛙寶'));
-    else if (act.actType === '創客課程' || act.actType === '創客讀者預約' || act.actType === '培訓') hasGroupPermission = myGroups.includes('創客');
-    
-    if (!hasGroupPermission) return;
-} else {
-    // 一般卡片的類別過濾
-    if (act.actType !== currentBookingType) return;
-}
-                hasActivities = true;
-
-                const isFull = act.remain <= 0;
-                const actDetails = act.isSubCard ? act.actDetails : `${act.date} ${act.time} ${act.content}`;
-                
-                let btnDisabled = ''; let btnText = '✅ 點我填班'; let btnColor = '#008CBA';
-                let onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
-                
-                // 【保留】創客課程的專長自動防呆審核
-                if (act.actType === '創客課程' && !act.isSubCard) {
-                    const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
-                    const myInstSkills = sessionStorage.getItem("volInstructorSkills") || "";
-                    const reqSkill = act.reqSkill || "";
-                    let hasSkill = false;
-                    const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
-
-                    if (act.role === '講師') {
-                        hasSkill = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myInstSkills.includes(rs));
-                    } else if (act.role === '助教') {
-                        hasSkill = act.isPhase1 ? (reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myDutySkills.includes(rs))) : true;
-                    }
-
-                    if (!hasSkill && !act.isPreview && !isFull) {
-                        btnDisabled = 'disabled'; btnText = `❌ 專長不符 (${reqSkill})`; btnColor = '#ccc';
-                    }
-                }
-
-                // 【保留】培訓活動報名的 4 階段超強防呆邏輯
-                if (act.actType === '培訓' && !act.isSubCard) {
-                    const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
-                    const mySeedSkills = sessionStorage.getItem("volSeedSkills") || "";
-                    const myTrainedCount = parseInt(sessionStorage.getItem("volTrainedCount") || "0", 10);
-                    const reqSkill = act.reqSkill || "";
-                    const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
-                    
-                    let hasSkillDuty = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myDutySkills.includes(rs));
-                    let hasSkillSeed = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => mySeedSkills.includes(rs));
-
-                    let isAllowed = false; let blockReason = "";
-
-                    if (act.phase === 4) {
-                        isAllowed = true;
-                    } else if (act.phase === 3) {
-                        if (myTrainedCount === 0) isAllowed = true; else blockReason = "❌ 限未受訓者";
-                    } else if (act.phase === 2) {
-                        if (myTrainedCount === 0 && (hasSkillSeed || hasSkillDuty)) isAllowed = true;
-                        else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 專長不符 (${reqSkill})`;
-                    } else if (act.phase === 1) {
-                        if (myTrainedCount === 0 && hasSkillSeed) isAllowed = true;
-                        else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 限對應專長之種子教師`;
-                    } else {
-                        blockReason = `👀 尚未開放 (${act.p1TimeStr})`;
-                    }
-
-                    if (!isAllowed && !act.isPreview && !isFull) {
-                        btnDisabled = 'disabled'; btnText = blockReason; btnColor = '#ccc';
-                    }
-                }
-                
-                // 狀態覆蓋 (代班/預覽/額滿)
                 if (act.isSubCard) {
-                    btnText = '🙋‍♂️ 協助代班'; btnColor = '#ff5722';
-                    onclickFn = `submitTakeSubstitute('${act.recordRow}', '${actDetails}')`; 
-                } else if (act.isPreview) {
-                    btnDisabled = 'disabled'; btnText = `👀 預覽中 (${act.p1TimeStr} 開放)`; btnColor = '#ff9800';
-                } else if (isFull) {
-                    btnDisabled = 'disabled'; btnText = '❌ 已額滿'; btnColor = '#ccc';
+                    // 代班卡片的雙重過濾
+                    if (act.actType !== currentBookingType) return;
+                    
+                    let hasGroupPermission = false;
+                    if (act.actType === '一般' || act.actType === '導覽') hasGroupPermission = myGroups.includes('活動組');
+                    else if (act.actType === '五感') hasGroupPermission = myGroups.includes('五感');
+                    else if (act.actType === '蛙寶') hasGroupPermission = (myGroups.includes('故事') || myGroups.includes('蛙寶'));
+                    else if (act.actType === '創客課程' || act.actType === '創客讀者預約' || act.actType === '培訓') hasGroupPermission = myGroups.includes('創客');
+                    
+                    if (!hasGroupPermission) return;
+
+                    hasActivities = true;
+                    const actDetails = act.isSubCard ? act.actDetails : `${act.date} ${act.time} ${act.content}`;
+                    htmlContent += `
+                        <div class="activity-card" style="border-left-color: #ff5722;">
+                            <h4 style="margin:0 0 10px 0;">${act.content}</h4>
+                            <p class="meta-text">⏰ 時間：${act.date} ${act.time}</p>
+                            <button class="btn-book" style="background-color: #ff5722;" onclick="submitTakeSubstitute('${act.recordRow}', '${actDetails}')">🙋‍♂️ 協助代班</button>
+                        </div>
+                    `;
+                } else {
+                    // 一般卡片的類別過濾
+                    if (act.actType !== currentBookingType) return;
+
+                    // 💡 2. 判斷是否開啟「僅顯示空班」過濾 (僅適用於一般活動，且若有人求代班則不濾除)
+                    if (currentBookingType === '一般' && showOnlyEmptySense) {
+                        const hasSubReq = act.bookedNames && act.bookedNames.some(name => name.includes('(代)'));
+                        if (act.remain <= 0 && !hasSubReq) return;
+                    }
+
+                    hasActivities = true;
+                    const isFull = act.remain <= 0;
+                    const actDetails = `${act.date} ${act.time} ${act.content}`;
+                    
+                    let btnDisabled = '';
+                    let btnText = '✅ 點我填班'; let btnColor = '#008CBA';
+                    let onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
+                    
+                    // 【保留】創客課程的專長自動防呆審核
+                    if (act.actType === '創客課程') {
+                        const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
+                        const myInstSkills = sessionStorage.getItem("volInstructorSkills") || "";
+                        const reqSkill = act.reqSkill || "";
+                        let hasSkill = false;
+                        const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
+
+                        if (act.role === '講師') {
+                            hasSkill = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myInstSkills.includes(rs));
+                        } else if (act.role === '助教') {
+                            hasSkill = act.isPhase1 ? (reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myDutySkills.includes(rs))) : true;
+                        }
+                        if (!hasSkill && !act.isPreview && !isFull) {
+                            btnDisabled = 'disabled'; btnText = `❌ 專長不符 (${reqSkill})`; btnColor = '#ccc';
+                        }
+                    }
+
+                    // 【保留】培訓活動報名的 4 階段超強防呆邏輯
+                    if (act.actType === '培訓') {
+                        const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
+                        const mySeedSkills = sessionStorage.getItem("volSeedSkills") || "";
+                        const myTrainedCount = parseInt(sessionStorage.getItem("volTrainedCount") || "0", 10);
+                        const reqSkill = act.reqSkill || "";
+                        const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
+                        
+                        let hasSkillDuty = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myDutySkills.includes(rs));
+                        let hasSkillSeed = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => mySeedSkills.includes(rs));
+
+                        let isAllowed = false; let blockReason = "";
+                        if (act.phase === 4) { isAllowed = true; } 
+                        else if (act.phase === 3) { if (myTrainedCount === 0) isAllowed = true; else blockReason = "❌ 限未受訓者"; } 
+                        else if (act.phase === 2) { if (myTrainedCount === 0 && (hasSkillSeed || hasSkillDuty)) isAllowed = true; else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 專長不符 (${reqSkill})`; } 
+                        else if (act.phase === 1) { if (myTrainedCount === 0 && hasSkillSeed) isAllowed = true; else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 限對應專長之種子教師`; } 
+                        else { blockReason = `👀 尚未開放 (${act.p1TimeStr})`; }
+
+                        if (!isAllowed && !act.isPreview && !isFull) {
+                            btnDisabled = 'disabled'; btnText = blockReason; btnColor = '#ccc';
+                        }
+                    }
+                    
+                    // 狀態覆蓋 (預覽/額滿)
+                    if (act.isPreview) {
+                        btnDisabled = 'disabled'; btnText = `👀 預覽中 (${act.p1TimeStr} 開放)`; btnColor = '#ff9800';
+                    } else if (isFull) {
+                        btnDisabled = 'disabled'; btnText = '❌ 已額滿'; btnColor = '#ccc';
+                    }
+                    
+                    // 💡 3. 產生已填班的夥伴姓名標籤 (支援一般、導覽、蛙寶等各種類別)
+                    let nameTagHtml = '';
+                    if (act.bookedNames && act.bookedNames.length > 0) {
+                        let tags = act.bookedNames.map(name => {
+                            let isSub = name.includes('(代)');
+                            // 如果是提出代班的志工，給予醒目的橘紅色框提示
+                            let tagStyle = isSub 
+                                ? 'background:#fff0f5; color:#dc3545; border:1px dashed #fbc2dc; font-weight:bold;' 
+                                : 'background:#e9ecef; color:#333;';
+                            return `<span class="vol-tag" style="${tagStyle} padding:4px 10px; border-radius:15px; display:inline-block; margin:2px 5px 2px 0; font-size:13px;">✔️ ${name}</span>`;
+                        }).join('');
+                        nameTagHtml = `<div style="margin-top: 12px; border-top: 1px dashed #eee; padding-top: 8px; line-height: 2;"><span style="font-size:13px; color:#555; font-weight:bold;">👥 已排班夥伴：</span>${tags}</div>`;
+                    } else {
+                        nameTagHtml = `<div style="margin-top: 12px; border-top: 1px dashed #eee; padding-top: 8px; color:#999; font-size:13px;">👥 已排班夥伴：暫無人排班</div>`;
+                    }
+
+                    // 顏色風格設定
+                    let borderColor = '#00B900'; let bgColor = '#ffffff';
+                    if (act.actType === '創客課程') { borderColor = '#28a745'; bgColor = '#f4fbf5'; }
+                    if (act.actType === '培訓') { borderColor = '#17a2b8'; bgColor = '#f0f9fa'; }
+                    if (act.actType === '導覽') { borderColor = '#17a2b8'; bgColor = '#f4fafb'; }
+                    if (act.actType === '蛙寶') { borderColor = '#ff9800'; bgColor = '#fff8e1'; }
+
+                    htmlContent += `
+                        <div class="${isFull ? 'activity-card full' : 'activity-card'}" style="border-left-color: ${borderColor}; background-color: ${bgColor};">
+                            <h4 style="margin:0 0 10px 0;">${act.content}</h4>
+                            <p class="meta-text">⏰ 時間：${act.date} ${act.time}</p>
+                            <p class="meta-text">👥 名額：剩餘 <span style="color: ${isFull ? 'red' : 'green'}; font-weight: bold;">${act.remain}</span> / ${act.quota} 人</p>
+                            <button class="btn-book" style="background-color: ${btnColor};" onclick="${onclickFn}" ${btnDisabled}>${btnText}</button>
+                            ${nameTagHtml}
+                        </div>
+                    `;
                 }
-                
-                const card = document.createElement('div');
-                card.className = isFull ? 'activity-card full' : 'activity-card';
-                if (act.isPreview) card.style.borderLeftColor = '#ff9800';
-                if (act.isSubCard) card.style.borderLeftColor = '#ff5722';
-                if (act.actType === '創客課程') { card.style.borderLeftColor = '#28a745'; card.style.backgroundColor = '#f4fbf5'; }
-                if (act.actType === '培訓') { card.style.borderLeftColor = '#17a2b8'; card.style.backgroundColor = '#f0f9fa'; }
-                
-                card.innerHTML = `
-                    <h4 style="margin:0 0 10px 0;">${act.content}</h4>
-                    <p class="meta-text">⏰ 時間：${act.date} ${act.time}</p>
-                    <p class="meta-text">👥 名額：剩餘 <span style="color: ${isFull ? 'red' : 'green'}; font-weight: bold;">${act.remain}</span> / ${act.quota} 人</p>
-                    <button class="btn-book" style="background-color: ${btnColor};" onclick="${onclickFn}" ${btnDisabled}>${btnText}</button>
-                `;
-                listDiv.appendChild(card);
             });
 
-            if (!hasActivities) listDiv.innerHTML = '<p style="text-align:center; color:#666;">目前沒有可填班的時段喔！</p>';
+            if (!hasActivities) {
+                listDiv.innerHTML = filterUiHtml + '<p style="text-align:center; color:#666; padding: 20px;">目前條件下沒有可填班的時段喔！</p>';
+                return;
+            }
+
+            listDiv.innerHTML = htmlContent;
         }
     }
 
