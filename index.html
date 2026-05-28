@@ -267,6 +267,19 @@
         showOnlyEmptySense = document.getElementById('chkSenseEmpty').checked;
         renderActivities(globalActivitiesCache); // 使用快取重新渲染
     }
+    let isSenseCompactMode = false; // 💡 新增：五感緊湊模式狀態
+
+    function toggleSenseCompact() {
+        isSenseCompactMode = document.getElementById('chkSenseCompact').checked;
+        renderActivities(globalActivitiesCache); // 使用快取重新渲染
+    }
+
+    let isGenCompactMode = false; // 💡 新增：一般活動緊湊模式狀態
+
+    function toggleGenCompact() {
+        isGenCompactMode = document.getElementById('chkGenCompact').checked;
+        renderActivities(globalActivitiesCache); // 使用快取重新渲染
+    }
 
     // 1. 在函式外面定義計時器變數 (確保全域可用)
     let loadingTimer1, loadingTimer2;
@@ -617,12 +630,17 @@
             const groupedActs = {};
             let subCardsHtml = '';
             
-            // 💡 1. 建立篩選器 UI
+            // 💡 1. 建立篩選器 UI (加入緊湊模式開關)
             let filterUiHtml = `
-                <div style="text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                    <label style="cursor: pointer; font-weight: bold; color: #198754; display: inline-flex; align-items: center; gap: 8px; font-size: 15px; margin: 0;">
+                <div style="text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 10px;">
+                    <label style="cursor: pointer; font-weight: bold; color: #198754; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; margin: 0;">
                         <input type="checkbox" id="chkSenseEmpty" onchange="toggleSenseEmpty()" ${showOnlyEmptySense ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;">
                         ✅ 僅顯示尚有空班的時段
+                    </label>
+                    <div style="border-top: 1px dashed #eee; width: 100%;"></div>
+                    <label style="cursor: pointer; font-weight: bold; color: #0056b3; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; margin: 0;">
+                        <input type="checkbox" id="chkSenseCompact" onchange="toggleSenseCompact()" ${isSenseCompactMode ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;">
+                        🗜️ 開啟緊湊檢視 (4欄模式，可兩指縮放)
                     </label>
                 </div>
             `;
@@ -647,13 +665,13 @@
                 } else {
                     if (act.actType !== currentBookingType) return;
                     
-                    // 💡 2. 判斷是否開啟「僅顯示空班」過濾 (若有名單內含代班請求則不篩除)
-                    const hasSubReq = act.bookedNames && act.bookedNames.some(name => name.includes('(代)'));
+                    // 判斷是否開啟「僅顯示空班」過濾 (若有名單內含代班請求則不篩除)
+                    const hasSubReq = act.bookedNames && act.bookedNames.some(name => name.includes('(徵求代班)'));
                     if (showOnlyEmptySense && act.remain <= 0 && !hasSubReq) return;
 
                     if (!groupedActs[act.date]) groupedActs[act.date] = [];
                     groupedActs[act.date].push(act);
-                    hasActivities = true; // 有通過篩選才算有資料
+                    hasActivities = true;
                 }
             });
 
@@ -662,18 +680,31 @@
                 return;
             }
 
-            listDiv.innerHTML += filterUiHtml; // 插入開關 UI
-            if (subCardsHtml) listDiv.innerHTML += subCardsHtml; // 插入代班卡片
+            listDiv.innerHTML += filterUiHtml; 
+            if (subCardsHtml) listDiv.innerHTML += subCardsHtml; 
 
-            // 💡 3. 渲染日期卡片並插入人名
+            // 💡 2. 根據是否開啟緊湊模式，定義動態 CSS 變數
+            const gridCols = isSenseCompactMode ? 'repeat(4, 1fr)' : '1fr 1fr';
+            const gridGap = isSenseCompactMode ? '4px' : '10px';
+            const cardPadding = isSenseCompactMode ? '8px 10px' : '12px 15px';
+            const titleSize = isSenseCompactMode ? '14px' : '16px';
+            const titlePadding = isSenseCompactMode ? '4px' : '8px';
+            const btnPadding = isSenseCompactMode ? '4px 2px' : '8px';
+            const btnRadius = isSenseCompactMode ? '4px' : '8px';
+            const timeSize = isSenseCompactMode ? '12.5px' : '15px';
+            const statusSize = isSenseCompactMode ? '11px' : '12px';
+            const nameSize = isSenseCompactMode ? '11px' : '12px';
+            const namePadding = isSenseCompactMode ? '2px' : '4px 2px';
+
+            // 💡 3. 渲染日期卡片
             for (const date in groupedActs) {
                 const slots = groupedActs[date];
                 const card = document.createElement('div');
                 card.className = 'activity-card';
                 card.style.borderLeftColor = '#e83e8c';
-                card.style.padding = '12px 15px';
+                card.style.padding = cardPadding; // 套用動態 Padding
 
-                let slotsHtml = `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">`;
+                let slotsHtml = `<div style="display: grid; grid-template-columns: ${gridCols}; gap: ${gridGap}; margin-top: 8px;">`;
                 
                 slots.forEach(act => {
                     const isFull = act.remain <= 0;
@@ -688,18 +719,19 @@
                     const actDetails = `${act.date} ${act.time} ${act.content}`;
                     const onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
 
-                    // 產生下方人名標籤
-                    let nameTagHtml = `<div style="font-size: 11.5px; color: #999; text-align: center; padding: 3px; margin-top: 4px;">尚無人排班</div>`;
+                    // 產生下方人名標籤 (若無人排班，緊湊模式下顯示精簡文字)
+                    let emptyText = isSenseCompactMode ? '空班' : '尚無人排班';
+                    let nameTagHtml = `<div style="font-size: ${nameSize}; color: #999; text-align: center; padding: 2px; margin-top: 2px;">${emptyText}</div>`;
                     if (act.bookedNames && act.bookedNames.length > 0) {
-                         nameTagHtml = `<div style="font-size: 12px; color: #d63384; text-align: center; background: #fff0f5; border-radius: 4px; padding: 4px 2px; margin-top: 4px; border: 1px dashed #fbc2dc; font-weight: bold; word-break: break-all;">🙋‍♂️ ${act.bookedNames.join('<br>')}</div>`;
+                         nameTagHtml = `<div style="font-size: ${nameSize}; color: #d63384; text-align: center; background: #fff0f5; border-radius: 4px; padding: ${namePadding}; margin-top: 2px; border: 1px dashed #fbc2dc; font-weight: bold; word-break: break-all; line-height: 1.3;">🙋‍♂️ ${act.bookedNames.join('<br>')}</div>`;
                     }
 
-                    // 將按鈕與人名包裝在一起
+                    // 套用動態樣式至按鈕與文字
                     slotsHtml += `
                         <div style="display: flex; flex-direction: column;">
-                            <button class="btn-sm" style="background-color: ${btnColor}; color: white; border: none; padding: 8px; border-radius: 8px; cursor: ${btnDisabled ? 'not-allowed' : 'pointer'}; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.4; width: 100%;" onclick="${onclickFn}" ${btnDisabled}>
-                                <span style="font-weight: bold; font-size: 15px;">${act.time}</span>
-                                <span style="font-size: 12px; background: rgba(255,255,255,0.25); padding: 2px 8px; border-radius: 10px; margin-top: 4px;">${btnText}</span>
+                            <button class="btn-sm" style="background-color: ${btnColor}; color: white; border: none; padding: ${btnPadding}; border-radius: ${btnRadius}; cursor: ${btnDisabled ? 'not-allowed' : 'pointer'}; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.3; width: 100%;" onclick="${onclickFn}" ${btnDisabled}>
+                                <span style="font-weight: bold; font-size: ${timeSize}; letter-spacing: -0.5px;">${act.time}</span>
+                                <span style="font-size: ${statusSize}; background: rgba(255,255,255,0.25); padding: 1px 4px; border-radius: 10px; margin-top: 2px; white-space: nowrap;">${btnText}</span>
                             </button>
                             ${nameTagHtml}
                         </div>
@@ -707,7 +739,7 @@
                 });
                 slotsHtml += `</div>`;
 
-                card.innerHTML = `<h4 style="margin: 0; color: #333; font-size: 16px; border-bottom: 1px solid #eee; padding-bottom: 8px;">📅 ${date}</h4>${slotsHtml}`;
+                card.innerHTML = `<h4 style="margin: 0; color: #333; font-size: ${titleSize}; border-bottom: 1px solid #eee; padding-bottom: ${titlePadding};">📅 ${date}</h4>${slotsHtml}`;
                 listDiv.appendChild(card);
             }
         }
@@ -715,28 +747,34 @@
         // 🔮 魔法 2：其他一般、創客、培訓的標準排版
         // ==========================================
         else {
-            // 💡 1. 如果目前是「一般活動排班」，建立最上方的篩選器 UI
+            // 💡 1. 建立最上方的篩選器 UI (文字改為扁平橫列模式)
             let filterUiHtml = '';
             if (currentBookingType === '一般') {
                 filterUiHtml = `
-                    <div style="text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                        <label style="cursor: pointer; font-weight: bold; color: #008CBA; display: inline-flex; align-items: center; gap: 8px; font-size: 15px; margin: 0;">
+                    <div style="text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 10px;">
+                        <label style="cursor: pointer; font-weight: bold; color: #008CBA; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; margin: 0;">
                             <input type="checkbox" id="chkSenseEmpty" onchange="toggleSenseEmpty()" ${showOnlyEmptySense ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;">
                             ✅ 僅顯示尚有空班的時段
+                        </label>
+                        <div style="border-top: 1px dashed #eee; width: 100%;"></div>
+                        <label style="cursor: pointer; font-weight: bold; color: #0056b3; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; margin: 0;">
+                            <input type="checkbox" id="chkGenCompact" onchange="toggleGenCompact()" ${isGenCompactMode ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;">
+                            🗜️ 開啟緊湊檢視 (扁平橫列模式)
                         </label>
                     </div>
                 `;
             }
 
-            let htmlContent = filterUiHtml; // 用於累積整體卡片 HTML 字串
+            let subCardsHtml = '';
+            let normalCardsHtml = '';
+            const isCompact = (currentBookingType === '一般' && isGenCompactMode);
 
             activities.forEach(act => {
                 const myGroups = sessionStorage.getItem("volGroup") || "";
 
                 if (act.isSubCard) {
-                    // 代班卡片的雙重過濾
+                    // 代班救援卡片 (維持原本醒目設計)
                     if (act.actType !== currentBookingType) return;
-                    
                     let hasGroupPermission = false;
                     if (act.actType === '一般' || act.actType === '導覽') hasGroupPermission = myGroups.includes('活動組');
                     else if (act.actType === '五感') hasGroupPermission = myGroups.includes('五感');
@@ -747,18 +785,17 @@
 
                     hasActivities = true;
                     const actDetails = act.isSubCard ? act.actDetails : `${act.date} ${act.time} ${act.content}`;
-                    htmlContent += `
-                        <div class="activity-card" style="border-left-color: #ff5722;">
+                    subCardsHtml += `
+                        <div class="activity-card" style="border-left-color: #ff5722; margin-bottom: 0;">
                             <h4 style="margin:0 0 10px 0;">${act.content}</h4>
                             <p class="meta-text">⏰ 時間：${act.date} ${act.time}</p>
                             <button class="btn-book" style="background-color: #ff5722;" onclick="submitTakeSubstitute('${act.recordRow}', '${actDetails}')">🙋‍♂️ 協助代班</button>
                         </div>
                     `;
                 } else {
-                    // 一般卡片的類別過濾
                     if (act.actType !== currentBookingType) return;
 
-                    // 💡 2. 判斷是否開啟「僅顯示空班」過濾 (僅適用於一般活動，且若有人求代班則不濾除)
+                    // 判斷是否開啟「僅顯示空班」過濾
                     if (currentBookingType === '一般' && showOnlyEmptySense) {
                         const hasSubReq = act.bookedNames && act.bookedNames.some(name => name.includes('(代)'));
                         if (act.remain <= 0 && !hasSubReq) return;
@@ -772,86 +809,95 @@
                     let btnText = '✅ 點我填班'; let btnColor = '#008CBA';
                     let onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
                     
-                    // 【保留】創客課程的專長自動防呆審核
+                    // 防呆邏輯 (創客與培訓)
                     if (act.actType === '創客課程') {
                         const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
                         const myInstSkills = sessionStorage.getItem("volInstructorSkills") || "";
                         const reqSkill = act.reqSkill || "";
                         let hasSkill = false;
                         const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
-
-                        if (act.role === '講師') {
-                            hasSkill = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myInstSkills.includes(rs));
-                        } else if (act.role === '助教') {
-                            hasSkill = act.isPhase1 ? (reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myDutySkills.includes(rs))) : true;
-                        }
-                        if (!hasSkill && !act.isPreview && !isFull) {
-                            btnDisabled = 'disabled'; btnText = `❌ 專長不符 (${reqSkill})`; btnColor = '#ccc';
-                        }
+                        if (act.role === '講師') { hasSkill = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myInstSkills.includes(rs)); } 
+                        else if (act.role === '助教') { hasSkill = act.isPhase1 ? (reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myDutySkills.includes(rs))) : true; }
+                        if (!hasSkill && !act.isPreview && !isFull) { btnDisabled = 'disabled'; btnText = `❌ 專長不符`; btnColor = '#ccc'; }
                     }
-
-                    // 【保留】培訓活動報名的 4 階段超強防呆邏輯
                     if (act.actType === '培訓') {
                         const myDutySkills = sessionStorage.getItem("volDutySkills") || "";
                         const mySeedSkills = sessionStorage.getItem("volSeedSkills") || "";
                         const myTrainedCount = parseInt(sessionStorage.getItem("volTrainedCount") || "0", 10);
                         const reqSkill = act.reqSkill || "";
                         const reqSkillsArr = reqSkill.split(/[,、，]/).map(s => s.trim()).filter(s => s);
-                        
                         let hasSkillDuty = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => myDutySkills.includes(rs));
                         let hasSkillSeed = reqSkillsArr.length === 0 ? true : reqSkillsArr.every(rs => mySeedSkills.includes(rs));
-
                         let isAllowed = false; let blockReason = "";
                         if (act.phase === 4) { isAllowed = true; } 
                         else if (act.phase === 3) { if (myTrainedCount === 0) isAllowed = true; else blockReason = "❌ 限未受訓者"; } 
-                        else if (act.phase === 2) { if (myTrainedCount === 0 && (hasSkillSeed || hasSkillDuty)) isAllowed = true; else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 專長不符 (${reqSkill})`; } 
-                        else if (act.phase === 1) { if (myTrainedCount === 0 && hasSkillSeed) isAllowed = true; else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 限對應專長之種子教師`; } 
-                        else { blockReason = `👀 尚未開放 (${act.p1TimeStr})`; }
-
-                        if (!isAllowed && !act.isPreview && !isFull) {
-                            btnDisabled = 'disabled'; btnText = blockReason; btnColor = '#ccc';
-                        }
+                        else if (act.phase === 2) { if (myTrainedCount === 0 && (hasSkillSeed || hasSkillDuty)) isAllowed = true; else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 專長不符`; } 
+                        else if (act.phase === 1) { if (myTrainedCount === 0 && hasSkillSeed) isAllowed = true; else blockReason = myTrainedCount > 0 ? "❌ 限未受訓者" : `❌ 限種子教師`; } 
+                        else { blockReason = `👀 未開放`; }
+                        if (!isAllowed && !act.isPreview && !isFull) { btnDisabled = 'disabled'; btnText = blockReason; btnColor = '#ccc'; }
                     }
                     
-                    // 狀態覆蓋 (預覽/額滿)
-                    if (act.isPreview) {
-                        btnDisabled = 'disabled'; btnText = `👀 預覽中 (${act.p1TimeStr} 開放)`; btnColor = '#ff9800';
-                    } else if (isFull) {
-                        btnDisabled = 'disabled'; btnText = '❌ 已額滿'; btnColor = '#ccc';
-                    }
+                    if (act.isPreview) { btnDisabled = 'disabled'; btnText = `預覽中`; btnColor = '#ff9800'; } 
+                    else if (isFull) { btnDisabled = 'disabled'; btnText = '已額滿'; btnColor = '#ccc'; }
                     
-                    // 💡 3. 產生已填班的夥伴姓名標籤 (支援一般、導覽、蛙寶等各種類別)
-                    let nameTagHtml = '';
-                    if (act.bookedNames && act.bookedNames.length > 0) {
-                        let tags = act.bookedNames.map(name => {
-                            let isSub = name.includes('(代)');
-                            // 如果是提出代班的志工，給予醒目的橘紅色框提示
-                            let tagStyle = isSub 
-                                ? 'background:#fff0f5; color:#dc3545; border:1px dashed #fbc2dc; font-weight:bold;' 
-                                : 'background:#e9ecef; color:#333;';
-                            return `<span class="vol-tag" style="${tagStyle} padding:4px 10px; border-radius:15px; display:inline-block; margin:2px 5px 2px 0; font-size:13px;">✔️ ${name}</span>`;
-                        }).join('');
-                        nameTagHtml = `<div style="margin-top: 12px; border-top: 1px dashed #eee; padding-top: 8px; line-height: 2;"><span style="font-size:13px; color:#555; font-weight:bold;">👥 已排班夥伴：</span>${tags}</div>`;
-                    } else {
-                        nameTagHtml = `<div style="margin-top: 12px; border-top: 1px dashed #eee; padding-top: 8px; color:#999; font-size:13px;">👥 已排班夥伴：暫無人排班</div>`;
-                    }
-
-                    // 顏色風格設定
                     let borderColor = '#00B900'; let bgColor = '#ffffff';
                     if (act.actType === '創客課程') { borderColor = '#28a745'; bgColor = '#f4fbf5'; }
                     if (act.actType === '培訓') { borderColor = '#17a2b8'; bgColor = '#f0f9fa'; }
                     if (act.actType === '導覽') { borderColor = '#17a2b8'; bgColor = '#f4fafb'; }
                     if (act.actType === '蛙寶') { borderColor = '#ff9800'; bgColor = '#fff8e1'; }
 
-                    htmlContent += `
-                        <div class="${isFull ? 'activity-card full' : 'activity-card'}" style="border-left-color: ${borderColor}; background-color: ${bgColor};">
-                            <h4 style="margin:0 0 10px 0;">${act.content}</h4>
-                            <p class="meta-text">⏰ 時間：${act.date} ${act.time}</p>
-                            <p class="meta-text">👥 名額：剩餘 <span style="color: ${isFull ? 'red' : 'green'}; font-weight: bold;">${act.remain}</span> / ${act.quota} 人</p>
-                            <button class="btn-book" style="background-color: ${btnColor};" onclick="${onclickFn}" ${btnDisabled}>${btnText}</button>
-                            ${nameTagHtml}
-                        </div>
-                    `;
+                    // ==========================================
+                    // 💡 2. 兩種模式的動態渲染
+                    // ==========================================
+                    if (isCompact) {
+                        // 【緊湊模式：一排一個活動，按鈕在最前方】
+                        let compactNameTags = act.bookedNames && act.bookedNames.length > 0
+                            ? act.bookedNames.map(name => {
+                                let isSub = name.includes('(代)');
+                                let tagStyle = isSub ? 'color:#dc3545; font-weight:bold; background:#fff0f5; border: 1px solid #fbc2dc; padding:1px 4px; border-radius:3px;' : 'color:#555; background:#e9ecef; padding:1px 4px; border-radius:3px;';
+                                return `<span style="${tagStyle}">✔️${name}</span>`;
+                            }).join(' ')
+                            : `<span style="color:#999;">無人排班</span>`;
+
+                        let shortBtnText = btnText.replace('✅ ', '').replace('❌ ', ''); // 簡化按鈕文字省空間
+
+                        normalCardsHtml += `
+                            <div class="activity-card" style="display: flex; align-items: center; justify-content: flex-start; border-left: 4px solid ${borderColor}; background-color: ${bgColor}; padding: 8px 10px; margin-bottom: 0; border-radius: 6px; gap: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                
+                                <button class="btn-sm" style="background-color: ${btnColor}; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: ${btnDisabled ? 'not-allowed' : 'pointer'}; font-size: 13px; font-weight: bold; white-space: nowrap; flex-shrink: 0;" onclick="${onclickFn}" ${btnDisabled}>${shortBtnText}</button>
+                                
+                                <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px; flex: 1; font-size: 13.5px; line-height: 1.4;">
+                                    <span style="font-weight: bold; color: #333; white-space: nowrap;">📅 ${act.date} ${act.time}</span>
+                                    <span style="font-weight: bold; color: #0056b3; white-space: nowrap;">${act.content}</span>
+                                    <span style="color: ${isFull ? '#dc3545' : '#28a745'}; white-space: nowrap; font-weight: bold;">[剩餘 ${act.remain}]</span>
+                                    <span style="display: flex; gap: 4px; align-items: center; font-size: 12.5px;">👥 ${compactNameTags}</span>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // 【一般模式：原本的直立式卡片 (完整恢復)】
+                        let nameTagHtml = '';
+                        if (act.bookedNames && act.bookedNames.length > 0) {
+                            let tags = act.bookedNames.map(name => {
+                                let isSub = name.includes('(代)');
+                                let tagStyle = isSub ? 'background:#fff0f5; color:#dc3545; border:1px dashed #fbc2dc; font-weight:bold;' : 'background:#e9ecef; color:#333;';
+                                return `<span class="vol-tag" style="${tagStyle} padding:4px 10px; border-radius:15px; display:inline-block; margin:2px 4px 2px 0; font-size:13px;">✔️ ${name}</span>`;
+                            }).join('');
+                            nameTagHtml = `<div style="margin-top: 12px; border-top: 1px dashed #eee; padding-top: 6px; line-height: 1.6;"><span style="font-size:13px; color:#555; font-weight:bold;">👥 已排班：</span><br>${tags}</div>`;
+                        } else {
+                            nameTagHtml = `<div style="margin-top: 12px; border-top: 1px dashed #eee; padding-top: 6px; color:#999; font-size:13px;">👥 暫無人排班</div>`;
+                        }
+
+                        normalCardsHtml += `
+                            <div class="${isFull ? 'activity-card full' : 'activity-card'}" style="border-left-color: ${borderColor}; background-color: ${bgColor}; margin-bottom: 0;">
+                                <h4 style="margin: 0 0 10px 0;">${act.content}</h4>
+                                <p class="meta-text">⏰ 時間：${act.date} ${act.time}</p>
+                                <p class="meta-text">👥 名額：剩餘 <span style="color: ${isFull ? 'red' : 'green'}; font-weight: bold;">${act.remain}</span> / ${act.quota} 人</p>
+                                <button class="btn-book" style="background-color: ${btnColor};" onclick="${onclickFn}" ${btnDisabled}>${btnText}</button>
+                                ${nameTagHtml}
+                            </div>
+                        `;
+                    }
                 }
             });
 
@@ -860,7 +906,14 @@
                 return;
             }
 
-            listDiv.innerHTML = htmlContent;
+            // 💡 3. 將卡片組合 (取消網格，改回垂直疊放，但調整間距)
+            let finalHtml = filterUiHtml;
+            if (subCardsHtml) {
+                finalHtml += `<div style="margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px;">${subCardsHtml}</div>`;
+            }
+            finalHtml += `<div style="display: flex; flex-direction: column; gap: ${isCompact ? '6px' : '12px'};">${normalCardsHtml}</div>`;
+
+            listDiv.innerHTML = finalHtml;
         }
     }
 
