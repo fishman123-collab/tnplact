@@ -872,7 +872,7 @@
                         // 【緊湊模式：一排一個活動，按鈕在最前方】
                         let compactNameTags = act.bookedNames && act.bookedNames.length > 0
                             ? act.bookedNames.map(name => {
-                                let isSub = name.includes('(代)');
+                                let isSub = name.includes('(徵求代班)');
                                 let tagStyle = isSub ? 'color:#dc3545; font-weight:bold; background:#fff0f5; border: 1px solid #fbc2dc; padding:1px 4px; border-radius:3px;' : 'color:#555; background:#e9ecef; padding:1px 4px; border-radius:3px;';
                                 return `<span style="${tagStyle}">✔️${name}</span>`;
                             }).join(' ')
@@ -898,7 +898,7 @@
                         let nameTagHtml = '';
                         if (act.bookedNames && act.bookedNames.length > 0) {
                             let tags = act.bookedNames.map(name => {
-                                let isSub = name.includes('(代)');
+                                let isSub = name.includes('(徵求代班)');
                                 let tagStyle = isSub ? 'background:#fff0f5; color:#dc3545; border:1px dashed #fbc2dc; font-weight:bold;' : 'background:#e9ecef; color:#333;';
                                 return `<span class="vol-tag" style="${tagStyle} padding:4px 10px; border-radius:15px; display:inline-block; margin:2px 4px 2px 0; font-size:13px;">✔️ ${name}</span>`;
                             }).join('');
