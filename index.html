@@ -1067,10 +1067,21 @@
     const listDiv = document.getElementById('myActivityList');
     listDiv.innerHTML = ""; 
 
-    // 1. 過濾與排序：先根據 actTimestamp 進行由近到遠的排序 (問題 1 解決方案)
+    // 1. 過濾與排序：先根據 actTimestamp 進行由近到遠的排序，同一天則依時間排序
     const filteredShifts = globalMyShifts
         .filter(shift => filterVal === 'all' ? true : shift.actType === filterVal)
-        .sort((a, b) => a.actTimestamp - b.actTimestamp);
+        .sort((a, b) => {
+            // 如果日期不同，直接用時間戳記排 (由近到遠)
+            if (a.actTimestamp !== b.actTimestamp) {
+                return a.actTimestamp - b.actTimestamp;
+            }
+            // 如果日期相同，從 actDetails 中抓取時間 (例如 8:45) 換算成分鐘數來排序
+            function getMins(str) {
+                const match = str.match(/(\d{1,2}):(\d{2})/);
+                return match ? parseInt(match[1], 10) * 60 + parseInt(match[2], 10) : 9999;
+            }
+            return getMins(a.actDetails) - getMins(b.actDetails);
+        });
 
     if (filteredShifts.length === 0) { 
         listDiv.innerHTML = "<p style='text-align:center; color:#666; padding:20px;'>此分類下沒有任何排班紀錄喔！</p>";
