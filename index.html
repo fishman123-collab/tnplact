@@ -252,7 +252,7 @@
 
 <script>
     // ======== 請替換以下兩個網址/ID ========
-    const LIFF_ID = "2008914129-kU6EacB0";  
+     const LIFF_ID = "2008914129-kU6EacB0";  
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxAxfitZSSedHZCmix-gjdS8Z1kOJvcvT5BQA9JEqmHUZuppfMRuFn7bwQZtVppKVIa/exec";
     // ========================================
 
@@ -707,23 +707,32 @@
                 let slotsHtml = `<div style="display: grid; grid-template-columns: ${gridCols}; gap: ${gridGap}; margin-top: 8px;">`;
                 
                 slots.forEach(act => {
+                    const actDetails = `${act.date} ${act.time} ${act.content}`;
+                    // 💡 尋找對應的代班救援卡片，取得 recordRow
+                    const subCardData = activities.find(a => a.isSubCard && a.actDetails === actDetails);
+                    const hasSubReq = !!subCardData;
+
                     const isFull = act.remain <= 0;
                     let btnDisabled = ''; let btnColor = '#e83e8c'; let btnText = `剩餘 ${act.remain} 人`;
+                    let onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
                     
                     if (act.isPreview) {
                         btnDisabled = 'disabled'; btnColor = '#ff9800'; btnText = '預覽中';
+                    } else if (isFull && hasSubReq) {
+                        // 💡 額滿但有人徵求代班時，解鎖按鈕並換成代班功能 (文字稍微縮短以適應五感小按鈕)
+                        btnDisabled = ''; btnColor = '#ff5722'; btnText = '🙋‍♂️ 接手'; 
+                        onclickFn = `submitTakeSubstitute('${subCardData.recordRow}', '${actDetails}')`;
                     } else if (isFull) {
                         btnDisabled = 'disabled'; btnColor = '#ccc'; btnText = '已額滿';
                     }
-                    
-                    const actDetails = `${act.date} ${act.time} ${act.content}`;
-                    const onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
 
                     // 產生下方人名標籤 (若無人排班，緊湊模式下顯示精簡文字)
                     let emptyText = isSenseCompactMode ? '空班' : '尚無人排班';
                     let nameTagHtml = `<div style="font-size: ${nameSize}; color: #999; text-align: center; padding: 2px; margin-top: 2px;">${emptyText}</div>`;
                     if (act.bookedNames && act.bookedNames.length > 0) {
-                         nameTagHtml = `<div style="font-size: ${nameSize}; color: #d63384; text-align: center; background: #fff0f5; border-radius: 4px; padding: ${namePadding}; margin-top: 2px; border: 1px dashed #fbc2dc; font-weight: bold; word-break: break-all; line-height: 1.3;">🙋‍♂️ ${act.bookedNames.join('<br>')}</div>`;
+                         // 💡 將 (徵求代班) 縮寫為 (代)，節省五感緊湊模式的空間
+                         const displayNames = act.bookedNames.map(name => name.replace('(徵求代班)', '(代)'));
+                         nameTagHtml = `<div style="font-size: ${nameSize}; color: #d63384; text-align: center; background: #fff0f5; border-radius: 4px; padding: ${namePadding}; margin-top: 2px; border: 1px dashed #fbc2dc; font-weight: bold; word-break: break-all; line-height: 1.3;">🙋‍♂️ ${displayNames.join('<br>')}</div>`;
                     }
 
                     // 套用動態樣式至按鈕與文字
