@@ -665,9 +665,9 @@
                 } else {
                     if (act.actType !== currentBookingType) return;
                     
-                    // 判斷是否開啟「僅顯示空班」過濾 (若有名單內含代班請求則不篩除)
-                    const hasSubReq = act.bookedNames && act.bookedNames.some(name => name.includes('(徵求代班)'));
-                    if (showOnlyEmptySense && act.remain <= 0 && !hasSubReq) return;
+                    // 💡 2. 判斷是否開啟「僅顯示空班」過濾 (新增: 有代班需求強制放行)
+                    const hasSubReq = act.subReqRows && act.subReqRows.length > 0;
+                    if (showOnlyEmptySense && act.remain <= 0 && !hasSubReq) return; 
 
                     if (!groupedActs[act.date]) groupedActs[act.date] = [];
                     groupedActs[act.date].push(act);
@@ -710,14 +710,22 @@
                     const isFull = act.remain <= 0;
                     let btnDisabled = ''; let btnColor = '#e83e8c'; let btnText = `剩餘 ${act.remain} 人`;
                     
-                    if (act.isPreview) {
+                    const actDetails = `${act.date} ${act.time} ${act.content}`;
+                    let onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
+
+                    // 💡 核心修改：判斷是否有人求救，強制將按鈕轉為「協助代班」並綁定救援功能
+                    const hasSubReq = act.subReqRows && act.subReqRows.length > 0;
+
+                    if (hasSubReq) {
+                        btnDisabled = ''; 
+                        btnColor = '#ff5722'; 
+                        btnText = '🙋‍♂️ 協助代班';
+                        onclickFn = `submitTakeSubstitute('${act.subReqRows[0]}', '${actDetails}')`;
+                    } else if (act.isPreview) {
                         btnDisabled = 'disabled'; btnColor = '#ff9800'; btnText = '預覽中';
                     } else if (isFull) {
                         btnDisabled = 'disabled'; btnColor = '#ccc'; btnText = '已額滿';
                     }
-                    
-                    const actDetails = `${act.date} ${act.time} ${act.content}`;
-                    const onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
 
                     // 產生下方人名標籤 (若無人排班，緊湊模式下顯示精簡文字)
                     let emptyText = isSenseCompactMode ? '空班' : '尚無人排班';
@@ -795,9 +803,11 @@
                 } else {
                     if (act.actType !== currentBookingType) return;
 
+                    // 💡 先取出是否有代班需求的狀態，供後續使用
+                    const hasSubReq = act.subReqRows && act.subReqRows.length > 0;
+
                     // 判斷是否開啟「僅顯示空班」過濾
                     if (currentBookingType === '一般' && showOnlyEmptySense) {
-                        const hasSubReq = act.bookedNames && act.bookedNames.some(name => name.includes('(代)'));
                         if (act.remain <= 0 && !hasSubReq) return;
                     }
 
@@ -837,8 +847,17 @@
                         if (!isAllowed && !act.isPreview && !isFull) { btnDisabled = 'disabled'; btnText = blockReason; btnColor = '#ccc'; }
                     }
                     
-                    if (act.isPreview) { btnDisabled = 'disabled'; btnText = `預覽中`; btnColor = '#ff9800'; } 
-                    else if (isFull) { btnDisabled = 'disabled'; btnText = '已額滿'; btnColor = '#ccc'; }
+                    // 💡 核心修改：狀態覆蓋邏輯 (優先判斷代班，將按鈕轉為救援按鈕)
+                    if (hasSubReq) {
+                        btnDisabled = ''; 
+                        btnColor = '#ff5722'; 
+                        btnText = '🙋‍♂️ 協助代班';
+                        onclickFn = `submitTakeSubstitute('${act.subReqRows[0]}', '${actDetails}')`;
+                    } else if (act.isPreview) {
+                        btnDisabled = 'disabled'; btnText = `👀 預覽中 (${act.p1TimeStr} 開放)`; btnColor = '#ff9800';
+                    } else if (isFull) {
+                        btnDisabled = 'disabled'; btnText = '❌ 已額滿'; btnColor = '#ccc';
+                    }
                     
                     let borderColor = '#00B900'; let bgColor = '#ffffff';
                     if (act.actType === '創客課程') { borderColor = '#28a745'; bgColor = '#f4fbf5'; }
