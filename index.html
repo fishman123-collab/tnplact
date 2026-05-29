@@ -793,19 +793,22 @@
                         </div>
                     `;
                 } else {
-                    if (act.actType !== currentBookingType) return;
+            if (act.actType !== currentBookingType) return;
+            
+            const actDetails = `${act.date} ${act.time} ${act.content}`;
+            // 💡 改從系統資料庫比對是否有對應的代班救援卡片，並取得該代班的 recordRow
+            const subCardData = activities.find(a => a.isSubCard && a.actDetails === actDetails);
+            const hasSubReq = !!subCardData;
 
-                    // 判斷是否開啟「僅顯示空班」過濾
-if (currentBookingType === '一般' && showOnlyEmptySense) {
-    const hasSubReq = act.bookedNames && act.bookedNames.some(name => name.includes('(徵求代班)'));
-    if (act.remain <= 0 && !hasSubReq) return;
-}
+            // 判斷是否開啟「僅顯示空班」過濾
+            if (currentBookingType === '一般' && showOnlyEmptySense) {
+                if (act.remain <= 0 && !hasSubReq) return;
+            }
 
-                    hasActivities = true;
-                    const isFull = act.remain <= 0;
-                    const actDetails = `${act.date} ${act.time} ${act.content}`;
-                    
-                    let btnDisabled = '';
+            hasActivities = true;
+            const isFull = act.remain <= 0;
+            
+            let btnDisabled = '';
                     let btnText = '✅ 點我填班'; let btnColor = '#008CBA';
                     let onclickFn = `submitBooking('${act.index}', '${actDetails}', '${act.actType}')`;
                     
@@ -838,6 +841,11 @@ if (currentBookingType === '一般' && showOnlyEmptySense) {
                     }
                     
                     if (act.isPreview) { btnDisabled = 'disabled'; btnText = `預覽中`; btnColor = '#ff9800'; } 
+                    else if (isFull && hasSubReq) { 
+                        // 💡 額滿但有人徵求代班時，按鈕改為「接手代班」並解除鎖定，讓意願者可直接點擊
+                        btnDisabled = ''; btnText = '🙋‍♂️ 接手代班'; btnColor = '#ff5722'; 
+                        onclickFn = `submitTakeSubstitute('${subCardData.recordRow}', '${actDetails}')`;
+                    }
                     else if (isFull) { btnDisabled = 'disabled'; btnText = '已額滿'; btnColor = '#ccc'; }
                     
                     let borderColor = '#00B900'; let bgColor = '#ffffff';
