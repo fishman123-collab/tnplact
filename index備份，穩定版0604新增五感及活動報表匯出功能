@@ -205,6 +205,24 @@
     <div id="calendarPanel" class="panel" style="background: transparent; padding: 0;">
         <button class="btn" style="background-color: #6c757d; display: block; margin-bottom: 15px;" onclick="goBackToMain()">🔙 返回主選單</button>
         <h3>🗓️ 班表總覽</h3>
+
+        <div id="staffExportArea" style="display: none; background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+            <h4 style="margin-top: 0; color: #333; margin-bottom: 12px;">📊 匯出排班報表</h4>
+            <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                <div style="flex: 1;">
+                    <label style="font-size: 13px; font-weight: bold; color: #555;">起始日期：</label>
+                    <input type="date" id="exportStartDate" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; margin-top: 4px;">
+                </div>
+                <div style="flex: 1;">
+                    <label style="font-size: 13px; font-weight: bold; color: #555;">結束日期：</label>
+                    <input type="date" id="exportEndDate" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; margin-top: 4px;">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-sm" style="flex: 1; background-color: #e83e8c; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold;" onclick="exportReport('五感')">📥 匯出 五感</button>
+                <button class="btn-sm" style="flex: 1; background-color: #008CBA; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold;" onclick="exportReport('一般')">📥 匯出 一般</button>
+            </div>
+        </div>
         <p style="text-align:center; color:#666; font-size:14px;">(顯示本月起的所有班表與排班人員)</p>
         
         <select id="calendarFilter" class="filter-select" onchange="renderCalendar()">
@@ -1200,6 +1218,13 @@ function createScheduleCard(shift) {
         document.getElementById('buttonArea').style.display = 'none';
         document.getElementById('calendarPanel').style.display = 'block';
         
+        // 💡 【新增】控制匯出報表區塊僅館員(含系統管理、志工管理、一般)可見
+        const userRole = sessionStorage.getItem("userRole");
+        const exportArea = document.getElementById('staffExportArea');
+        if (exportArea) {
+            exportArea.style.display = (userRole === 'staff') ? 'block' : 'none';
+        }
+        
         const filterDropdown = document.getElementById('calendarFilter');
         filterDropdown.value = 'all'; // 重置篩選器
         filterDropdown.disabled = true; // ⏳ 【新增】資料傳輸中，鎖定下拉選單，避免志工偷跑
@@ -1470,6 +1495,74 @@ function createScheduleCard(shift) {
                 alert(data.message);
             }
         }).catch(err => { hideLoading(); alert("連線逾時，請檢查網路。"); });
+    }
+
+    // --- 【新增】匯出報表觸發函數 ---
+    function exportReport(type) {
+        const startDate = document.getElementById('exportStartDate').value;
+        const endDate = document.getElementById('exportEndDate').value;
+
+        if (!startDate || !endDate) {
+            alert("⚠️ 請先選擇「起始日期」與「結束日期」！");
+            return;
+        }
+        if (new Date(startDate) > new Date(endDate)) {
+            alert("⚠️ 起始日期不能大於結束日期！");
+            return;
+        }
+
+        showLoading();
+        fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: "exportReport",
+                startDate: startDate,
+                endDate: endDate,
+                reportType: type
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            hideLoading();
+            if (data.status === "success") {
+                if (data.data.length <= 1) { 
+                    alert("目前選擇的區間內，查無符合的班表資料！");
+                } else {
+                    downloadCSV(data.data, `排班報表_${type}_${startDate}_至_${endDate}.csv`);
+                }
+            } else {
+                alert("⚠️ 匯出失敗：" + data.message);
+            }
+        })
+        .catch(err => { hideLoading(); alert("連線錯誤：" + err); });
+    }
+
+    // --- 【新增】將二維陣列轉為 CSV 並觸發瀏覽器下載 (支援 Excel 開啟) ---
+    function downloadCSV(dataArray, filename) {
+        let csvContent = "\uFEFF"; // 加上 UTF-8 BOM，讓 Windows Excel 能夠正常顯示中文不亂碼
+        dataArray.forEach(function(rowArray) {
+            let row = rowArray.map(item => {
+                let str = item === null || item === undefined ? "" : item.toString();
+                // 若內容包含逗號或換行，需要用雙引號包住以防跑版
+                if (str.includes(',') || str.includes('\\n') || str.includes('"')) {
+                    str = '"' + str.replace(/"/g, '""') + '"';
+                }
+                return str;
+            }).join(",");
+            csvContent += row + "\r\n";
+        });
+
+        var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        var link = document.createElement("a");
+        if (link.download !== undefined) {
+            var url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
     }
 </script>
 
