@@ -344,9 +344,25 @@
 
 <script>
     // ======== 請替換以下兩個網址/ID ========
-     const LIFF_ID = "2008914129-kU6EacB0";  
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxAxfitZSSedHZCmix-gjdS8Z1kOJvcvT5BQA9JEqmHUZuppfMRuFn7bwQZtVppKVIa/exec";
+    const LIFF_ID = "2008914129-7KGP9Yxy"; 
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwbnCirrFwG8mt7CBFbOP-_HMlzgBiA9d08iZYMHHjyAnRo2hrPII77qPWFX7s_3mAO/exec"; 
     // ========================================
+
+    // --- 核心工具：安全多重解碼 (修復 LINE LIFF 轉址時的 Double Encoding) ---
+    function safeDecodeString(str) {
+        if (!str) return "";
+        let decoded = str.toString();
+        try {
+            let count = 0;
+            while (count < 5 && decoded.indexOf('%') > -1 && /%[0-9A-Fa-f]{2}/.test(decoded)) {
+                let nextDecoded = decodeURIComponent(decoded);
+                if (nextDecoded === decoded) break;
+                decoded = nextDecoded;
+                count++;
+            }
+        } catch(e) {}
+        return decoded;
+    }
 
     // 儲存從 GAS 抓回來的原始資料，供前端篩選用
     let globalMyShifts = [];
@@ -619,6 +635,27 @@
         renderMatchCards();
     }
 
+    function formatDateWithWeekday(dateStr) {
+        if (!dateStr) return "";
+        let str = dateStr.toString().trim();
+        if (/\([日一二三四五六]\)/.test(str)) {
+            return str;
+        }
+        const match = str.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+        if (match) {
+            const year = parseInt(match[1], 10);
+            const month = parseInt(match[2], 10) - 1;
+            const day = parseInt(match[3], 10);
+            const dObj = new Date(year, month, day);
+            if (!isNaN(dObj.getTime())) {
+                const days = ['日', '一', '二', '三', '四', '五', '六'];
+                const w = days[dObj.getDay()];
+                return `${str}(${w})`;
+            }
+        }
+        return str;
+    }
+
     function renderMatchCards() {
         const listDiv = document.getElementById('matchListContainer');
         listDiv.innerHTML = "";
@@ -661,14 +698,15 @@
             // 待認領區：顯示可選擇的時段按鈕
             if (currentMatchTab === 'pending') {
                 if (item.isSub) {
-                    const actDetails = `${item.approvedDate} ${item.approvedTime} [預約] ${item.device} <br>👤 讀者：${item.readerName} (需求：${item.volReq})`;
+                    const formattedAppDate = formatDateWithWeekday(item.approvedDate);
+                    const actDetails = `${formattedAppDate} ${item.approvedTime} [預約] ${item.device} <br>👤 讀者：${item.readerName} (需求：${item.volReq})`;
                     const safeDetails = actDetails.replace(/'/g, "\\'").replace(/"/g, "&quot;");
                     slotsHtml += `
                     <div style="font-size: 13px; color: #dc3545; margin-bottom: 8px; font-weight:bold;">🆘 此為志工徵求代班，點擊接手即可直接替補：</div>
                     <div style="border: 1px solid #feb2b2; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: #fff5f5;">
                         <div>
                             <span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 5px; font-size: 12px; margin-right: 8px;">代班</span>
-                            <span style="font-weight: bold; color: #c53030; font-size: 14px;">${item.approvedDate} ${item.approvedTime}</span>
+                            <span style="font-weight: bold; color: #c53030; font-size: 14px;">${formattedAppDate} ${item.approvedTime}</span>
                             <div style="font-size: 12px; color: #555; margin-top: 4px;">原志工：${item.assignedVol}</div>
                         </div>
                         <button class="btn-sm" style="background: #ff5722; color: white; border: none; border-radius: 5px; padding: 6px 12px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="submitTakeSubstitute('MAKER_${item.rowId}', '${safeDetails}')">接手此代班</button>
@@ -677,11 +715,12 @@
                     slotsHtml += `<div style="font-size: 13px; color: #666; margin-bottom: 8px; font-weight:bold;">👉 請選擇您可配合的時段認領：</div>`;
                     item.slots.forEach(s => {
                         if (s.d) {
+                            const formattedSlotDate = formatDateWithWeekday(s.d);
                             slotsHtml += `
                             <div style="border: 1px solid #fbd38d; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: #fffaf0;">
                                 <div>
                                     <span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 5px; font-size: 12px; margin-right: 8px;">${s.type}</span>
-                                    <span style="font-weight: bold; color: #0056b3; font-size: 14px;">${s.d} ${s.t}</span>
+                                    <span style="font-weight: bold; color: #0056b3; font-size: 14px;">${formattedSlotDate} ${s.t}</span>
                                 </div>
                                 <button class="btn-sm" style="background: #008CBA; color: white; border: none; border-radius: 5px; padding: 6px 12px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="submitMakerClaim(${item.rowId}, '${s.d}', '${s.t}', '${item.device}')">認領此時段</button>
                             </div>`;
@@ -696,11 +735,12 @@
                 let boxText = item.isSub ? '#c53030' : '#155724';
                 let boxDashed = item.isSub ? '#feb2b2' : '#b1dfbb';
 
+                const formattedAppDate = formatDateWithWeekday(item.approvedDate);
                 assignedHtml = `
                 <div style="border: 1px solid ${boxBorder}; border-radius: 8px; padding: 12px; background: ${boxBg}; color: ${boxText}; display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
                     <div style="display:flex; align-items: center; gap: 10px; width: 100%;">
                         <span style="font-weight: bold; font-size: 13px;">✔️ 核准時段：</span>
-                        <span style="font-weight: bold; font-size: 15px; color: inherit;">${item.approvedDate} ${item.approvedTime}</span>
+                        <span style="font-weight: bold; font-size: 15px; color: inherit;">${formattedAppDate} ${item.approvedTime}</span>
                         ${subBadge}
                     </div>
                     <div style="display:flex; align-items: center; gap: 10px; border-top: 1px dashed ${boxDashed}; padding-top: 8px;">
@@ -714,16 +754,16 @@
             // 若為「待認領」則顯示紅色警告，若是「我的認領」或「總班表」則直接隱藏！
             let deadlineHtml = '';
             if (currentMatchTab === 'pending' && item.deadline) {
-                deadlineHtml = `⏳ <b style="color: #dc3545;">最晚回覆：${item.deadline}</b>`;
+                deadlineHtml = `⏳ <b style="color: #dc3545;">最晚回覆：${formatDateWithWeekday(item.deadline)}</b>`;
             }
 
             const card = document.createElement('div');
             card.style = `border: 1px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);`;
             
             card.innerHTML = `
-                <div style="position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; min-height: 24px;">
-                    <span style="position: absolute; left: 0; background: #212529; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px; font-weight: bold;">${item.id || '無編號'}</span>
-                    <span style="font-weight: bold; color: #111; font-size: 19px; letter-spacing: 1px;">👤 ${item.readerName}</span>
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+                    <span style="background: #212529; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; word-break: break-all;">${item.id || '無編號'}</span>
+                    <span style="font-weight: bold; color: #111; font-size: 18px; letter-spacing: 0.5px;">👤 ${item.readerName}</span>
                 </div>
                 <div style="text-align: center; margin-bottom: 12px;">
                     <span style="background: #198754; color: white; padding: 4px 12px; border-radius: 5px; font-size: 13px; font-weight: bold;">${item.volReq || '未註明需求'}</span>
@@ -2178,7 +2218,7 @@ function createScheduleCard(shift) {
     
     // --- 【新增】加入行事曆相關工具函數 ---
     function parseEventTimes(actDetails) {
-        const cleanDetails = actDetails.replace(/<[^>]+>/g, ' '); 
+        const cleanDetails = safeDecodeString(actDetails).replace(/<[^>]+>/g, ' '); 
         const dateMatch = cleanDetails.match(/(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})/);
         if (!dateMatch) return null;
         
@@ -2225,8 +2265,8 @@ function createScheduleCard(shift) {
     function addToGoogleCalendar(title, actDetails) {
         const times = parseEventTimes(actDetails);
         if (!times) { alert("無法解析日期時間，請聯繫管理員！"); return; }
-        const cleanTitle = title.replace(/<[^>]+>/g, '').trim();
-        const cleanDetails = actDetails.replace(/<br>/g, '\n').replace(/<[^>]+>/g, '').trim();
+        const cleanTitle = safeDecodeString(title).replace(/<[^>]+>/g, '').trim();
+        const cleanDetails = safeDecodeString(actDetails).replace(/<br>/g, '\n').replace(/<[^>]+>/g, '').trim();
         const url = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
                     `&text=${encodeURIComponent(cleanTitle)}` +
                     `&dates=${times.start}/${times.end}` +
@@ -2238,8 +2278,8 @@ function createScheduleCard(shift) {
     function downloadIcsFile(title, actDetails, recordRow) {
         const times = parseEventTimes(actDetails);
         if (!times) { alert("無法解析日期時間，請聯繫管理員！"); return; }
-        const cleanTitle = title.replace(/<[^>]+>/g, '').trim();
-        const cleanDetails = actDetails.replace(/<br>/g, '\n').replace(/<[^>]+>/g, '').trim();
+        const cleanTitle = safeDecodeString(title).replace(/<[^>]+>/g, '').trim();
+        const cleanDetails = safeDecodeString(actDetails).replace(/<br>/g, '\n').replace(/<[^>]+>/g, '').trim();
         
         const url = GAS_URL + `?action=getIcs` +
                     `&title=${encodeURIComponent(cleanTitle)}` +
@@ -2898,11 +2938,14 @@ function createScheduleCard(shift) {
 
     function checkUrlParameters() {
         const urlParams = new URLSearchParams(window.location.search);
-        const action = urlParams.get('action');
+        const rawAction = urlParams.get('action');
+        const action = safeDecodeString(rawAction);
         
         if (action === 'takeSub') {
-            const recordRow = urlParams.get('recordRow');
-            const details = urlParams.get('details');
+            const rawRecordRow = urlParams.get('recordRow');
+            const rawDetails = urlParams.get('details');
+            const recordRow = safeDecodeString(rawRecordRow);
+            const details = safeDecodeString(rawDetails);
             if (recordRow) {
                 window.history.replaceState({}, document.title, window.location.pathname);
                 setTimeout(() => {
@@ -2910,9 +2953,14 @@ function createScheduleCard(shift) {
                 }, 500);
             }
         } else if (action === 'bookShift') {
-            const actIndex = urlParams.get('actIndex');
-            const actDetails = urlParams.get('actDetails');
-            const actType = urlParams.get('actType');
+            const rawIndex = urlParams.get('actIndex');
+            const rawDetails = urlParams.get('actDetails');
+            const rawType = urlParams.get('actType');
+            
+            const actIndex = safeDecodeString(rawIndex);
+            const actDetails = safeDecodeString(rawDetails);
+            const actType = safeDecodeString(rawType);
+            
             if (actIndex && actDetails) {
                 window.history.replaceState({}, document.title, window.location.pathname);
                 setTimeout(() => {
